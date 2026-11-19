@@ -4,53 +4,63 @@ import pandas as pd
 ana_dizin = Path(__file__).resolve().parent
 veri_klasoru = ana_dizin / "01_Veri"
 
+df_25_liste = pd.read_csv(veri_klasoru / "ilk_25_urun.csv")
 df_tufe = pd.read_csv(veri_klasoru / "tufe_temiz.csv")
+df_hal = pd.read_csv(veri_klasoru / "temiz_hal_fiyatlari.csv")
 
-df_hal = None
-secilen_dosya = None
-for aday in ["ilk_25_urun.csv", "temiz_hal_fiyatlari.csv"]:
-    yol = veri_klasoru / aday
-    if yol.exists():
-        tmp = pd.read_csv(yol)
-        print(f"{aday} -> sütunlar: {tmp.columns.tolist()} | şekil: {tmp.shape}")
-        if "TARIH" in tmp.columns and "ORTALAMA_UCRET" in tmp.columns:
-            df_hal = tmp
-            secilen_dosya = aday
-            break
+# 1. İlk 25 ürünü filtrele
+secili_urunler = df_25_liste["MAL_ADI"].dropna().unique()
+df_hal_25 = df_hal[df_hal["MAL_ADI"].isin(secili_urunler)].copy()
 
-if df_hal is None:
-    print("Uyarı: TARIH ve ORTALAMA_UCRET sütunlarına sahip dosya bulunamadı.")
-    raise SystemExit
+# 2. Birim yazımlarını standartlaştır (boşluk temizliği + büyük harf)
+if "BIRIM" in df_hal_25.columns:
+    df_hal_25["BIRIM"] = (
+        df_hal_25["BIRIM"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+    )
 
-print(f"\nKullanılan dosya: {secilen_dosya}")
+if "MAL_TURU" in df_hal_25.columns:
+    df_hal_25["MAL_TURU"] = df_hal_25["MAL_TURU"].astype(str).str.strip().str.upper()
 
-tarih_dt = pd.to_datetime(df_hal["TARIH"], errors="coerce")
-df_hal["YIL"] = tarih_dt.dt.year
-df_hal["AY"] = tarih_dt.dt.month
+if "MAL_ADI" in df_hal_25.columns:
+    df_hal_25["MAL_ADI"] = df_hal_25["MAL_ADI"].astype(str).str.strip().str.upper()
 
-df_birlesik = df_hal.merge(df_tufe, on=["YIL", "AY"], how="left")
+# 3. Tarihten YIL ve AY çıkarıp TÜFE ile birleştir
+tarih_dt = pd.to_datetime(df_hal_25["TARIH"], errors="coerce")
+df_hal_25["YIL"] = tarih_dt.dt.year
+df_hal_25["AY"] = tarih_dt.dt.month
 
-# En çok kaydı olan ilk 25 ürünü seç ve filtrele
-secili_25_urun = df_birlesik["MAL_ADI"].value_counts().head(25).index
-df_birlesik = df_birlesik[df_birlesik["MAL_ADI"].isin(secili_25_urun)].copy()
+df_birlesik = df_hal_25.merge(df_tufe, on=["YIL", "AY"], how="left")
 
+# 4. Baz TÜFE ve reel ortalama ücreti hesapla
 gecerli_tufe = df_birlesik.dropna(subset=["TUFE"]).sort_values(["YIL", "AY"])
 baz_tufe = float(gecerli_tufe["TUFE"].iloc[-1])
-baz_yil = int(gecerli_tufe["YIL"].iloc[-1])
-baz_ay = int(gecerli_tufe["AY"].iloc[-1])
 
 df_birlesik["REEL_ORTALAMA_UCRET"] = (
     df_birlesik["ORTALAMA_UCRET"] * (baz_tufe / df_birlesik["TUFE"])
 ).round(2)
 
-cikti_yolu = veri_klasoru / "hal_reel_fiyatli.csv"
-df_birlesik.to_csv(cikti_yolu, index=False)
+df_birlesik.to_csv(veri_klasoru / "hal_reel_fiyatli.csv", index=False)
 
-print("Benzersiz ürün sayısı:", df_birlesik["MAL_ADI"].nunique())
-print("İlk 25 ürün:", list(secili_25_urun))
-print(f"Baz dönem: {baz_yil}-{baz_ay:02d} (Baz TÜFE: {baz_tufe})")
-print(
-    df_birlesik[["TARIH", "MAL_ADI", "ORTALAMA_UCRET", "TUFE", "REEL_ORTALAMA_UCRET"]]
-    .head(10)
-    .to_string(index=False)
+# 5. Standartlaştırılmış birimlere göre özet tablo üret
+grup_kolonlari = [c for c in ["MAL_TURU", "MAL_ADI", "BIRIM"] if c in df_birlesik.columns]
+ozet_25 = (
+    df_birlesik.groupby(grup_kolonlari, as_index=False)
+    .agg(
+        KAYIT=("REEL_ORTALAMA_UCRET", "count"),
+        NOMINAL_ORT=("ORTALAMA_UCRET", "mean"),
+        REEL_ORT=("REEL_ORTALAMA_UCRET", "mean"),
+        REEL_MIN=("REEL_ORTALAMA_UCRET", "min"),
+        REEL_MAX=("REEL_ORTALAMA_UCRET", "max"),
+    )
+    .round(2)
+    .sort_values("REEL_ORT", ascending=False)
 )
+
+ozet_25.to_csv(veri_klasoru / "ilk_25_reel_ozet.csv", index=False)
+
+print("Benzersiz birim listesi:", sorted(df_birlesik["BIRIM"].dropna().unique().tolist()) if "BIRIM" in df_birlesik.columns else [])
+print("\nStandartlaştırılmış ilk 25 ürün reel fiyat özeti:")
+print(ozet_25.to_string(index=False))
