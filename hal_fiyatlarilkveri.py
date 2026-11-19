@@ -41,3 +41,6 @@ print(ham_df.head(5))
 print("\nEn çok geçen ilk 25 ürün (MAL_ADI):")
 print(ham_df["MAL_ADI"].value_counts().head(25))
 ham_df.to_csv("01_Veri/ham_hal_fiyatlari.csv", index=False, encoding="utf-8-sig")
+ilk_25 = ham_df["MAL_ADI"].value_counts().head(25).reset_index()
+ilk_25.columns = ["MAL_ADI", "ADET"]
+ilk_25.to_csv("01_Veri/ilk_25_urun.csv", index=False, encoding="utf-8-sig")
