@@ -1,0 +1,301 @@
+MAL_ADI,BIRIM,AY,AY_ADI,MEVSIM,AYLIK_REEL_ORT
+ANANAS,ADET,1,Ocak,Kış,54.8
+ANANAS,ADET,2,Şubat,Kış,56.75
+ANANAS,ADET,3,Mart,İlkbahar,58.65
+ANANAS,ADET,4,Nisan,İlkbahar,57.67
+ANANAS,ADET,5,Mayıs,İlkbahar,56.36
+ANANAS,ADET,6,Haziran,Yaz,51.18
+ANANAS,ADET,7,Temmuz,Yaz,50.54
+ANANAS,ADET,8,Ağustos,Yaz,53.75
+ANANAS,ADET,9,Eylül,Sonbahar,54.96
+ANANAS,ADET,10,Ekim,Sonbahar,51.91
+ANANAS,ADET,11,Kasım,Sonbahar,52.03
+ANANAS,ADET,12,Aralık,Kış,52.34
+AVAKADO,ADET,1,Ocak,Kış,22.91
+AVAKADO,ADET,2,Şubat,Kış,24.93
+AVAKADO,ADET,3,Mart,İlkbahar,30.48
+AVAKADO,ADET,4,Nisan,İlkbahar,33.15
+AVAKADO,ADET,5,Mayıs,İlkbahar,33.87
+AVAKADO,ADET,6,Haziran,Yaz,33.4
+AVAKADO,ADET,7,Temmuz,Yaz,33.66
+AVAKADO,ADET,8,Ağustos,Yaz,33.64
+AVAKADO,ADET,9,Eylül,Sonbahar,27.86
+AVAKADO,ADET,10,Ekim,Sonbahar,26.56
+AVAKADO,ADET,11,Kasım,Sonbahar,22.51
+AVAKADO,ADET,12,Aralık,Kış,21.23
+CILEK,KG,1,Ocak,Kış,57.33
+CILEK,KG,2,Şubat,Kış,54.53
+CILEK,KG,3,Mart,İlkbahar,48.25
+CILEK,KG,4,Nisan,İlkbahar,36.33
+CILEK,KG,5,Mayıs,İlkbahar,35.91
+CILEK,KG,6,Haziran,Yaz,32.49
+CILEK,KG,7,Temmuz,Yaz,39.65
+CILEK,KG,8,Ağustos,Yaz,44.81
+CILEK,KG,9,Eylül,Sonbahar,46.38
+CILEK,KG,10,Ekim,Sonbahar,51.13
+CILEK,KG,11,Kasım,Sonbahar,77.81
+CILEK,KG,12,Aralık,Kış,82.21
+DOMATES  SALKIM,KG,1,Ocak,Kış,30.91
+DOMATES  SALKIM,KG,2,Şubat,Kış,29.27
+DOMATES  SALKIM,KG,3,Mart,İlkbahar,27.53
+DOMATES  SALKIM,KG,4,Nisan,İlkbahar,29.89
+DOMATES  SALKIM,KG,5,Mayıs,İlkbahar,22.83
+DOMATES  SALKIM,KG,6,Haziran,Yaz,16.6
+DOMATES  SALKIM,KG,7,Temmuz,Yaz,18.31
+DOMATES  SALKIM,KG,8,Ağustos,Yaz,19.22
+DOMATES  SALKIM,KG,9,Eylül,Sonbahar,20.76
+DOMATES  SALKIM,KG,10,Ekim,Sonbahar,26.04
+DOMATES  SALKIM,KG,11,Kasım,Sonbahar,27.72
+DOMATES  SALKIM,KG,12,Aralık,Kış,27.71
+ELMA  GOLDEN,KG,1,Ocak,Kış,16.0
+ELMA  GOLDEN,KG,2,Şubat,Kış,16.66
+ELMA  GOLDEN,KG,3,Mart,İlkbahar,17.48
+ELMA  GOLDEN,KG,4,Nisan,İlkbahar,18.61
+ELMA  GOLDEN,KG,5,Mayıs,İlkbahar,21.41
+ELMA  GOLDEN,KG,6,Haziran,Yaz,22.53
+ELMA  GOLDEN,KG,7,Temmuz,Yaz,24.62
+ELMA  GOLDEN,KG,8,Ağustos,Yaz,23.46
+ELMA  GOLDEN,KG,9,Eylül,Sonbahar,18.1
+ELMA  GOLDEN,KG,10,Ekim,Sonbahar,15.82
+ELMA  GOLDEN,KG,11,Kasım,Sonbahar,17.25
+ELMA  GOLDEN,KG,12,Aralık,Kış,17.01
+ELMA  STARKING,KG,1,Ocak,Kış,18.11
+ELMA  STARKING,KG,2,Şubat,Kış,18.83
+ELMA  STARKING,KG,3,Mart,İlkbahar,19.65
+ELMA  STARKING,KG,4,Nisan,İlkbahar,20.48
+ELMA  STARKING,KG,5,Mayıs,İlkbahar,22.96
+ELMA  STARKING,KG,6,Haziran,Yaz,24.14
+ELMA  STARKING,KG,7,Temmuz,Yaz,26.82
+ELMA  STARKING,KG,8,Ağustos,Yaz,25.61
+ELMA  STARKING,KG,9,Eylül,Sonbahar,19.56
+ELMA  STARKING,KG,10,Ekim,Sonbahar,17.68
+ELMA  STARKING,KG,11,Kasım,Sonbahar,18.76
+ELMA  STARKING,KG,12,Aralık,Kış,18.87
+FASULYE   CALI,KG,1,Ocak,Kış,63.09
+FASULYE   CALI,KG,2,Şubat,Kış,89.63
+FASULYE   CALI,KG,3,Mart,İlkbahar,80.24
+FASULYE   CALI,KG,4,Nisan,İlkbahar,40.86
+FASULYE   CALI,KG,5,Mayıs,İlkbahar,29.56
+FASULYE   CALI,KG,6,Haziran,Yaz,30.17
+FASULYE   CALI,KG,7,Temmuz,Yaz,36.49
+FASULYE   CALI,KG,8,Ağustos,Yaz,37.89
+FASULYE   CALI,KG,9,Eylül,Sonbahar,35.42
+FASULYE   CALI,KG,10,Ekim,Sonbahar,31.71
+FASULYE   CALI,KG,11,Kasım,Sonbahar,29.01
+FASULYE   CALI,KG,12,Aralık,Kış,41.77
+GREYFURT,KG,1,Ocak,Kış,10.77
+GREYFURT,KG,2,Şubat,Kış,10.39
+GREYFURT,KG,3,Mart,İlkbahar,10.47
+GREYFURT,KG,4,Nisan,İlkbahar,11.06
+GREYFURT,KG,5,Mayıs,İlkbahar,12.6
+GREYFURT,KG,6,Haziran,Yaz,15.06
+GREYFURT,KG,7,Temmuz,Yaz,20.21
+GREYFURT,KG,8,Ağustos,Yaz,24.02
+GREYFURT,KG,9,Eylül,Sonbahar,24.58
+GREYFURT,KG,10,Ekim,Sonbahar,17.77
+GREYFURT,KG,11,Kasım,Sonbahar,13.61
+GREYFURT,KG,12,Aralık,Kış,11.82
+ISPANAK,KG,1,Ocak,Kış,13.71
+ISPANAK,KG,2,Şubat,Kış,13.85
+ISPANAK,KG,3,Mart,İlkbahar,11.37
+ISPANAK,KG,4,Nisan,İlkbahar,11.67
+ISPANAK,KG,5,Mayıs,İlkbahar,13.57
+ISPANAK,KG,6,Haziran,Yaz,17.49
+ISPANAK,KG,7,Temmuz,Yaz,20.99
+ISPANAK,KG,8,Ağustos,Yaz,21.45
+ISPANAK,KG,9,Eylül,Sonbahar,21.63
+ISPANAK,KG,10,Ekim,Sonbahar,16.43
+ISPANAK,KG,11,Kasım,Sonbahar,12.32
+ISPANAK,KG,12,Aralık,Kış,12.83
+KABAK TAZE,KG,1,Ocak,Kış,24.61
+KABAK TAZE,KG,2,Şubat,Kış,25.71
+KABAK TAZE,KG,3,Mart,İlkbahar,19.94
+KABAK TAZE,KG,4,Nisan,İlkbahar,16.52
+KABAK TAZE,KG,5,Mayıs,İlkbahar,14.33
+KABAK TAZE,KG,6,Haziran,Yaz,12.3
+KABAK TAZE,KG,7,Temmuz,Yaz,13.83
+KABAK TAZE,KG,8,Ağustos,Yaz,14.04
+KABAK TAZE,KG,9,Eylül,Sonbahar,14.17
+KABAK TAZE,KG,10,Ekim,Sonbahar,14.81
+KABAK TAZE,KG,11,Kasım,Sonbahar,18.1
+KABAK TAZE,KG,12,Aralık,Kış,21.34
+LAHANA  BEYAZ,KG,1,Ocak,Kış,8.62
+LAHANA  BEYAZ,KG,2,Şubat,Kış,8.71
+LAHANA  BEYAZ,KG,3,Mart,İlkbahar,8.32
+LAHANA  BEYAZ,KG,4,Nisan,İlkbahar,8.72
+LAHANA  BEYAZ,KG,5,Mayıs,İlkbahar,11.5
+LAHANA  BEYAZ,KG,6,Haziran,Yaz,8.87
+LAHANA  BEYAZ,KG,7,Temmuz,Yaz,9.9
+LAHANA  BEYAZ,KG,8,Ağustos,Yaz,11.87
+LAHANA  BEYAZ,KG,9,Eylül,Sonbahar,10.8
+LAHANA  BEYAZ,KG,10,Ekim,Sonbahar,10.11
+LAHANA  BEYAZ,KG,11,Kasım,Sonbahar,8.67
+LAHANA  BEYAZ,KG,12,Aralık,Kış,8.84
+LAHANA  KIRMIZI,KG,1,Ocak,Kış,10.12
+LAHANA  KIRMIZI,KG,2,Şubat,Kış,10.8
+LAHANA  KIRMIZI,KG,3,Mart,İlkbahar,9.59
+LAHANA  KIRMIZI,KG,4,Nisan,İlkbahar,11.35
+LAHANA  KIRMIZI,KG,5,Mayıs,İlkbahar,12.86
+LAHANA  KIRMIZI,KG,6,Haziran,Yaz,9.58
+LAHANA  KIRMIZI,KG,7,Temmuz,Yaz,10.77
+LAHANA  KIRMIZI,KG,8,Ağustos,Yaz,11.86
+LAHANA  KIRMIZI,KG,9,Eylül,Sonbahar,10.65
+LAHANA  KIRMIZI,KG,10,Ekim,Sonbahar,10.11
+LAHANA  KIRMIZI,KG,11,Kasım,Sonbahar,9.66
+LAHANA  KIRMIZI,KG,12,Aralık,Kış,9.92
+MANTAR,KG,1,Ocak,Kış,47.07
+MANTAR,KG,2,Şubat,Kış,47.69
+MANTAR,KG,3,Mart,İlkbahar,49.22
+MANTAR,KG,4,Nisan,İlkbahar,49.07
+MANTAR,KG,5,Mayıs,İlkbahar,48.03
+MANTAR,KG,6,Haziran,Yaz,47.37
+MANTAR,KG,7,Temmuz,Yaz,49.03
+MANTAR,KG,8,Ağustos,Yaz,53.58
+MANTAR,KG,9,Eylül,Sonbahar,56.7
+MANTAR,KG,10,Ekim,Sonbahar,53.91
+MANTAR,KG,11,Kasım,Sonbahar,50.69
+MANTAR,KG,12,Aralık,Kış,49.78
+MARUL,ADET,1,Ocak,Kış,14.56
+MARUL,ADET,2,Şubat,Kış,16.6
+MARUL,ADET,3,Mart,İlkbahar,14.09
+MARUL,ADET,4,Nisan,İlkbahar,12.9
+MARUL,ADET,5,Mayıs,İlkbahar,10.85
+MARUL,ADET,6,Haziran,Yaz,11.29
+MARUL,ADET,7,Temmuz,Yaz,12.23
+MARUL,ADET,8,Ağustos,Yaz,13.93
+MARUL,ADET,9,Eylül,Sonbahar,14.78
+MARUL,ADET,10,Ekim,Sonbahar,13.39
+MARUL,ADET,11,Kasım,Sonbahar,11.92
+MARUL,ADET,12,Aralık,Kış,11.71
+MARUL AYSBERG,ADET,1,Ocak,Kış,18.8
+MARUL AYSBERG,ADET,2,Şubat,Kış,20.65
+MARUL AYSBERG,ADET,3,Mart,İlkbahar,17.71
+MARUL AYSBERG,ADET,4,Nisan,İlkbahar,16.98
+MARUL AYSBERG,ADET,5,Mayıs,İlkbahar,13.88
+MARUL AYSBERG,ADET,6,Haziran,Yaz,13.83
+MARUL AYSBERG,ADET,7,Temmuz,Yaz,15.05
+MARUL AYSBERG,ADET,8,Ağustos,Yaz,17.35
+MARUL AYSBERG,ADET,9,Eylül,Sonbahar,19.08
+MARUL AYSBERG,ADET,10,Ekim,Sonbahar,16.91
+MARUL AYSBERG,ADET,11,Kasım,Sonbahar,14.71
+MARUL AYSBERG,ADET,12,Aralık,Kış,14.93
+MUZ  ITHAL,KG,1,Ocak,Kış,44.1
+MUZ  ITHAL,KG,2,Şubat,Kış,46.99
+MUZ  ITHAL,KG,3,Mart,İlkbahar,49.83
+MUZ  ITHAL,KG,4,Nisan,İlkbahar,51.16
+MUZ  ITHAL,KG,5,Mayıs,İlkbahar,50.15
+MUZ  ITHAL,KG,6,Haziran,Yaz,46.52
+MUZ  ITHAL,KG,7,Temmuz,Yaz,45.61
+MUZ  ITHAL,KG,8,Ağustos,Yaz,46.17
+MUZ  ITHAL,KG,9,Eylül,Sonbahar,47.68
+MUZ  ITHAL,KG,10,Ekim,Sonbahar,44.93
+MUZ  ITHAL,KG,11,Kasım,Sonbahar,42.62
+MUZ  ITHAL,KG,12,Aralık,Kış,43.9
+PANCAR,KG,1,Ocak,Kış,9.56
+PANCAR,KG,2,Şubat,Kış,10.0
+PANCAR,KG,3,Mart,İlkbahar,9.95
+PANCAR,KG,4,Nisan,İlkbahar,9.18
+PANCAR,KG,5,Mayıs,İlkbahar,9.87
+PANCAR,KG,6,Haziran,Yaz,10.14
+PANCAR,KG,7,Temmuz,Yaz,10.98
+PANCAR,KG,8,Ağustos,Yaz,11.0
+PANCAR,KG,9,Eylül,Sonbahar,11.8
+PANCAR,KG,10,Ekim,Sonbahar,11.05
+PANCAR,KG,11,Kasım,Sonbahar,9.53
+PANCAR,KG,12,Aralık,Kış,9.12
+PATATES  CALMA,KG,1,Ocak,Kış,12.81
+PATATES  CALMA,KG,2,Şubat,Kış,14.24
+PATATES  CALMA,KG,3,Mart,İlkbahar,14.56
+PATATES  CALMA,KG,4,Nisan,İlkbahar,15.62
+PATATES  CALMA,KG,5,Mayıs,İlkbahar,15.12
+PATATES  CALMA,KG,6,Haziran,Yaz,13.69
+PATATES  CALMA,KG,7,Temmuz,Yaz,13.4
+PATATES  CALMA,KG,8,Ağustos,Yaz,12.85
+PATATES  CALMA,KG,9,Eylül,Sonbahar,12.27
+PATATES  CALMA,KG,10,Ekim,Sonbahar,11.63
+PATATES  CALMA,KG,11,Kasım,Sonbahar,11.95
+PATATES  CALMA,KG,12,Aralık,Kış,12.41
+PATLICAN  UZUN,KG,1,Ocak,Kış,30.57
+PATLICAN  UZUN,KG,2,Şubat,Kış,31.35
+PATLICAN  UZUN,KG,3,Mart,İlkbahar,30.87
+PATLICAN  UZUN,KG,4,Nisan,İlkbahar,18.87
+PATLICAN  UZUN,KG,5,Mayıs,İlkbahar,15.57
+PATLICAN  UZUN,KG,6,Haziran,Yaz,14.02
+PATLICAN  UZUN,KG,7,Temmuz,Yaz,11.35
+PATLICAN  UZUN,KG,8,Ağustos,Yaz,11.31
+PATLICAN  UZUN,KG,9,Eylül,Sonbahar,13.97
+PATLICAN  UZUN,KG,10,Ekim,Sonbahar,15.23
+PATLICAN  UZUN,KG,11,Kasım,Sonbahar,17.85
+PATLICAN  UZUN,KG,12,Aralık,Kış,23.97
+PATLICAN TOPAN,KG,1,Ocak,Kış,37.52
+PATLICAN TOPAN,KG,2,Şubat,Kış,38.75
+PATLICAN TOPAN,KG,3,Mart,İlkbahar,36.31
+PATLICAN TOPAN,KG,4,Nisan,İlkbahar,22.87
+PATLICAN TOPAN,KG,5,Mayıs,İlkbahar,17.49
+PATLICAN TOPAN,KG,6,Haziran,Yaz,15.84
+PATLICAN TOPAN,KG,7,Temmuz,Yaz,12.73
+PATLICAN TOPAN,KG,8,Ağustos,Yaz,11.8
+PATLICAN TOPAN,KG,9,Eylül,Sonbahar,14.37
+PATLICAN TOPAN,KG,10,Ekim,Sonbahar,16.28
+PATLICAN TOPAN,KG,11,Kasım,Sonbahar,20.36
+PATLICAN TOPAN,KG,12,Aralık,Kış,27.89
+SARIMSAK  KURU,KG,1,Ocak,Kış,72.99
+SARIMSAK  KURU,KG,2,Şubat,Kış,76.27
+SARIMSAK  KURU,KG,3,Mart,İlkbahar,79.82
+SARIMSAK  KURU,KG,4,Nisan,İlkbahar,88.37
+SARIMSAK  KURU,KG,5,Mayıs,İlkbahar,81.0
+SARIMSAK  KURU,KG,6,Haziran,Yaz,62.0
+SARIMSAK  KURU,KG,7,Temmuz,Yaz,60.09
+SARIMSAK  KURU,KG,8,Ağustos,Yaz,65.61
+SARIMSAK  KURU,KG,9,Eylül,Sonbahar,70.15
+SARIMSAK  KURU,KG,10,Ekim,Sonbahar,70.46
+SARIMSAK  KURU,KG,11,Kasım,Sonbahar,71.87
+SARIMSAK  KURU,KG,12,Aralık,Kış,75.14
+Y.DEREOTU,BAĞ,1,Ocak,Kış,3.25
+Y.DEREOTU,BAĞ,2,Şubat,Kış,3.67
+Y.DEREOTU,BAĞ,3,Mart,İlkbahar,3.59
+Y.DEREOTU,BAĞ,4,Nisan,İlkbahar,3.22
+Y.DEREOTU,BAĞ,5,Mayıs,İlkbahar,3.08
+Y.DEREOTU,BAĞ,6,Haziran,Yaz,2.94
+Y.DEREOTU,BAĞ,7,Temmuz,Yaz,2.97
+Y.DEREOTU,BAĞ,8,Ağustos,Yaz,3.14
+Y.DEREOTU,BAĞ,9,Eylül,Sonbahar,3.14
+Y.DEREOTU,BAĞ,10,Ekim,Sonbahar,3.1
+Y.DEREOTU,BAĞ,11,Kasım,Sonbahar,3.03
+Y.DEREOTU,BAĞ,12,Aralık,Kış,3.07
+Y.MAYDONOZ,BAĞ,1,Ocak,Kış,3.1
+Y.MAYDONOZ,BAĞ,2,Şubat,Kış,3.35
+Y.MAYDONOZ,BAĞ,3,Mart,İlkbahar,3.29
+Y.MAYDONOZ,BAĞ,4,Nisan,İlkbahar,3.12
+Y.MAYDONOZ,BAĞ,5,Mayıs,İlkbahar,3.04
+Y.MAYDONOZ,BAĞ,6,Haziran,Yaz,2.89
+Y.MAYDONOZ,BAĞ,7,Temmuz,Yaz,2.91
+Y.MAYDONOZ,BAĞ,8,Ağustos,Yaz,3.02
+Y.MAYDONOZ,BAĞ,9,Eylül,Sonbahar,3.0
+Y.MAYDONOZ,BAĞ,10,Ekim,Sonbahar,2.96
+Y.MAYDONOZ,BAĞ,11,Kasım,Sonbahar,2.91
+Y.MAYDONOZ,BAĞ,12,Aralık,Kış,2.94
+Y.NANE,BAĞ,1,Ocak,Kış,4.72
+Y.NANE,BAĞ,2,Şubat,Kış,5.26
+Y.NANE,BAĞ,3,Mart,İlkbahar,4.85
+Y.NANE,BAĞ,4,Nisan,İlkbahar,3.76
+Y.NANE,BAĞ,5,Mayıs,İlkbahar,3.32
+Y.NANE,BAĞ,6,Haziran,Yaz,3.06
+Y.NANE,BAĞ,7,Temmuz,Yaz,2.98
+Y.NANE,BAĞ,8,Ağustos,Yaz,3.09
+Y.NANE,BAĞ,9,Eylül,Sonbahar,3.07
+Y.NANE,BAĞ,10,Ekim,Sonbahar,3.01
+Y.NANE,BAĞ,11,Kasım,Sonbahar,3.07
+Y.NANE,BAĞ,12,Aralık,Kış,3.57
+Y.ROKA,BAĞ,1,Ocak,Kış,3.11
+Y.ROKA,BAĞ,2,Şubat,Kış,3.36
+Y.ROKA,BAĞ,3,Mart,İlkbahar,3.3
+Y.ROKA,BAĞ,4,Nisan,İlkbahar,3.12
+Y.ROKA,BAĞ,5,Mayıs,İlkbahar,3.04
+Y.ROKA,BAĞ,6,Haziran,Yaz,2.89
+Y.ROKA,BAĞ,7,Temmuz,Yaz,2.9
+Y.ROKA,BAĞ,8,Ağustos,Yaz,3.02
+Y.ROKA,BAĞ,9,Eylül,Sonbahar,3.0
+Y.ROKA,BAĞ,10,Ekim,Sonbahar,2.96
+Y.ROKA,BAĞ,11,Kasım,Sonbahar,2.91
+Y.ROKA,BAĞ,12,Aralık,Kış,2.98
