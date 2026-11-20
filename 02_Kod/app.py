@@ -1892,8 +1892,8 @@ with sekme_strateji:
     with str_sol:
         st.markdown("#### 🧭 Kraljic Satın Alma Strateji Matrisi (4 Bölge)")
         st.caption(
-            "**X Ekseni:** 30 Günlük Fiyat Oynaklığı (Arz & Fiyat Riski) | "
-            "**Y Ekseni:** Ortalama Reel Fiyat (₺) (Birim Maliyet Etkisi)"
+            "Ürünlerin 30 günlük fiyat oynaklığı (tedarik riski) ile ortalama reel birim fiyatına (maliyet etkisi) göre stratejik sınıflandırması. "
+            "Tüm ürün detaylarını görmek için noktaların üzerine fare ile gelebilirsiniz."
         )
 
         if not kraljic_df_cached.empty:
@@ -1905,47 +1905,103 @@ with sekme_strateji:
                 yuksek_risk = r["RISK_OYNAKLIK"] >= x_esik
                 yuksek_maliyet = r["MALIYET_REEL"] >= y_esik
                 if yuksek_risk and yuksek_maliyet:
-                    return "1. Stratejik Ürünler (Uzun Vadeli Sözleşme)"
+                    return "Kritik / Sözleşmeli Alım"
                 if not yuksek_risk and yuksek_maliyet:
-                    return "2. Kaldıraç Ürünler (İhale & Rekabetçi Pazarlık)"
+                    return "Maliyet / Fire Kontrolü"
                 if yuksek_risk and not yuksek_maliyet:
-                    return "3. Darboğaz Ürünler (Mevsiminde Stokla / İkame Bul)"
-                return "4. Rutin Ürünler (Spot / Otomatik Sipariş)"
+                    return "Fırsat / Stoklama"
+                return "Rutin / Spot Alım"
 
             kraljic_df["STRATEJI_BOLGESI"] = kraljic_df.apply(_kraljic_bolge, axis=1)
 
             renk_haritasi = {
-                "1. Stratejik Ürünler (Uzun Vadeli Sözleşme)": "#DC2626",
-                "2. Kaldıraç Ürünler (İhale & Rekabetçi Pazarlık)": "#F59E0B",
-                "3. Darboğaz Ürünler (Mevsiminde Stokla / İkame Bul)": "#3B82F6",
-                "4. Rutin Ürünler (Spot / Otomatik Sipariş)": "#1B7A43",
+                "Kritik / Sözleşmeli Alım": "#DC2626",
+                "Maliyet / Fire Kontrolü": "#F59E0B",
+                "Fırsat / Stoklama": "#3B82F6",
+                "Rutin / Spot Alım": "#1B7A43",
             }
 
-            fig_kraljic = px.scatter(
-                kraljic_df,
-                x="RISK_OYNAKLIK",
-                y="MALIYET_REEL",
-                color="STRATEJI_BOLGESI",
-                text="MAL_ADI",
-                color_discrete_map=renk_haritasi,
-                hover_data={
-                    "MAL_ADI": True,
-                    "RISK_OYNAKLIK": ":.2f",
-                    "MALIYET_REEL": ":.2f",
-                    "STRATEJI_BOLGESI": True,
-                },
-                labels={
-                    "MAL_ADI": "Ürün Adı",
-                    "RISK_OYNAKLIK": "30 Günlük Fiyat Oynaklığı (Risk)",
-                    "MALIYET_REEL": "Güncel Reel Fiyat (₺) / Maliyet Etkisi",
-                    "STRATEJI_BOLGESI": "Kraljic Bölgesi",
-                },
+            tum_etiketleri_goster = st.checkbox(
+                "Tüm ürün isimlerini grafikte göster",
+                value=False,
+                key="kraljic_tum_etiketler",
             )
-            fig_kraljic.update_traces(
-                textposition="top center",
-                marker=dict(size=12, line=dict(width=1.2, color="#FFFFFF")),
-                textfont=dict(size=10, color="#1E293B"),
+
+            # 4 köşedeki en uç / kritik 6-8 ürünü (+ seçili odak ürünü) otomatik seç
+            uc_urunler = set()
+            if len(kraljic_df) > 0:
+                uc_urunler.update(kraljic_df.nlargest(2, "RISK_OYNAKLIK")["MAL_ADI"].tolist())
+                uc_urunler.update(kraljic_df.nlargest(2, "MALIYET_REEL")["MAL_ADI"].tolist())
+                uc_urunler.update(kraljic_df.nsmallest(2, "RISK_OYNAKLIK")["MAL_ADI"].tolist())
+                uc_urunler.update(kraljic_df.nsmallest(2, "MALIYET_REEL")["MAL_ADI"].tolist())
+                if secili_odak_urun in kraljic_df["MAL_ADI"].values:
+                    uc_urunler.add(secili_odak_urun)
+
+            kraljic_df["ETIKET"] = (
+                kraljic_df["MAL_ADI"]
+                if tum_etiketleri_goster
+                else kraljic_df["MAL_ADI"].where(kraljic_df["MAL_ADI"].isin(uc_urunler), "")
             )
+
+            # Dinamik textposition: çakışmayı önlemek için ürünün bulunduğu bölgeye göre konumlandır
+            x_min_val = float(kraljic_df["RISK_OYNAKLIK"].min())
+            x_max_val = float(kraljic_df["RISK_OYNAKLIK"].max())
+            y_min_val = float(kraljic_df["MALIYET_REEL"].min())
+            y_max_val = float(kraljic_df["MALIYET_REEL"].max())
+            x_aralik = max(x_max_val - x_min_val, 1.0)
+            y_aralik = max(y_max_val - y_min_val, 1.0)
+
+            def _dinamik_konum(r):
+                sagda = r["RISK_OYNAKLIK"] >= x_esik
+                ustte = r["MALIYET_REEL"] >= y_esik
+                if sagda and ustte:
+                    return "top left" if r["RISK_OYNAKLIK"] > (x_min_val + 0.72 * x_aralik) else "top center"
+                if (not sagda) and ustte:
+                    return "top right" if r["RISK_OYNAKLIK"] < (x_min_val + 0.25 * x_aralik) else "top center"
+                if sagda and (not ustte):
+                    return "bottom left" if r["RISK_OYNAKLIK"] > (x_min_val + 0.72 * x_aralik) else "bottom center"
+                return "bottom right" if r["RISK_OYNAKLIK"] < (x_min_val + 0.25 * x_aralik) else "bottom center"
+
+            kraljic_df["ETIKET_KONUM"] = kraljic_df.apply(_dinamik_konum, axis=1)
+
+            fig_kraljic = go.Figure()
+            for bolge_ad in [
+                "Kritik / Sözleşmeli Alım",
+                "Maliyet / Fire Kontrolü",
+                "Fırsat / Stoklama",
+                "Rutin / Spot Alım",
+            ]:
+                sub_df = kraljic_df[kraljic_df["STRATEJI_BOLGESI"] == bolge_ad]
+                if sub_df.empty:
+                    continue
+                fig_kraljic.add_trace(
+                    go.Scatter(
+                        x=sub_df["RISK_OYNAKLIK"],
+                        y=sub_df["MALIYET_REEL"],
+                        mode="markers+text",
+                        name=bolge_ad,
+                        text=sub_df["ETIKET"],
+                        textposition=sub_df["ETIKET_KONUM"].tolist(),
+                        textfont=dict(size=10, color="#1E293B"),
+                        marker=dict(
+                            size=[18 if u == secili_odak_urun else 15 for u in sub_df["MAL_ADI"]],
+                            color=renk_haritasi[bolge_ad],
+                            line=dict(width=1.5, color="#FFFFFF"),
+                            opacity=0.92,
+                        ),
+                        customdata=np.stack(
+                            [sub_df["MAL_ADI"], sub_df["STRATEJI_BOLGESI"]],
+                            axis=-1,
+                        ),
+                        hovertemplate=(
+                            "<b>%{customdata[0]}</b><br>"
+                            "Bölge: %{customdata[1]}<br>"
+                            "30 Günlük Fiyat Oynaklığı: %{x:.2f}<br>"
+                            "Ortalama Birim Reel Fiyat: %{y:.2f} ₺<extra></extra>"
+                        ),
+                    )
+                )
+
             fig_kraljic.add_vline(
                 x=x_esik,
                 line_dash="dash",
@@ -1957,18 +2013,22 @@ with sekme_strateji:
                 y=y_esik,
                 line_dash="dash",
                 line_color="#64748B",
-                annotation_text=f"Medyan Maliyet ({y_esik:.1f} TL)",
+                annotation_text=f"Medyan Maliyet ({y_esik:.1f} ₺)",
                 annotation_position="bottom right",
             )
             fig_kraljic.update_layout(
-                height=460,
-                margin=dict(l=10, r=10, t=25, b=10),
+                height=540,
+                margin=dict(l=20, r=25, t=65, b=20),
+                xaxis_title="Fiyat Oynaklığı / Tedarik Riski (30 Günlük Standart Sapma)",
+                yaxis_title="Ortalama Birim Reel Fiyat / Maliyet Etkisi (₺)",
+                xaxis=dict(range=[max(0.0, x_min_val - 0.10 * x_aralik), x_max_val + 0.14 * x_aralik]),
+                yaxis=dict(range=[max(0.0, y_min_val - 0.12 * y_aralik), y_max_val + 0.14 * y_aralik]),
                 plot_bgcolor="#FFFFFF",
                 paper_bgcolor="#FFFFFF",
                 legend=dict(
                     orientation="h",
                     yanchor="bottom",
-                    y=1.02,
+                    y=1.03,
                     xanchor="left",
                     x=0,
                     font=dict(size=10),
@@ -1976,10 +2036,38 @@ with sekme_strateji:
             )
             st.plotly_chart(fig_kraljic, use_container_width=True)
 
+            # 4 Strateji Bölgesi Özet Tablosu
+            bolge_sirasi = [
+                "Kritik / Sözleşmeli Alım",
+                "Fırsat / Stoklama",
+                "Maliyet / Fire Kontrolü",
+                "Rutin / Spot Alım",
+            ]
+            bolge_aksiyon = {
+                "Kritik / Sözleşmeli Alım": "Yüksek risk & yüksek fiyat → Uzun vadeli sabit fiyatlı tedarikçi sözleşmesi",
+                "Fırsat / Stoklama": "Yüksek oynaklık & düşük birim fiyat → En ucuz ayda toplu alım / stoklama",
+                "Maliyet / Fire Kontrolü": "Düşük risk & yüksek fiyat → Zayi/bozulma ve porsiyon kontrolü + ihale",
+                "Rutin / Spot Alım": "Düşük risk & düşük fiyat → Standart haftalık spot sipariş",
+            }
+            bolge_ozet_satirlar = []
+            for b_ad in bolge_sirasi:
+                b_kesit = kraljic_df[kraljic_df["STRATEJI_BOLGESI"] == b_ad].sort_values("MALIYET_REEL", ascending=False)
+                urun_adlari = b_kesit["MAL_ADI"].tolist()
+                bolge_ozet_satirlar.append(
+                    {
+                        "Strateji Bölgesi": b_ad,
+                        "Ürün Sayısı": len(urun_adlari),
+                        "Bu Bölgedeki Ürünler": ", ".join(urun_adlari) if urun_adlari else "—",
+                        "Önerilen Yönetim Aksiyonu": bolge_aksiyon[b_ad],
+                    }
+                )
+            st.markdown("##### 📋 4 Strateji Bölgesine Göre Ürün Sınıflandırma Özeti")
+            st.dataframe(pd.DataFrame(bolge_ozet_satirlar), use_container_width=True, hide_index=True)
+
             # Seçili odak ürünün bulunduğu bölgeyi ve genel matris yorumunu özetle
             odak_satir = kraljic_df[kraljic_df["MAL_ADI"] == secili_odak_urun]
-            stratejik_sayisi = int(kraljic_df["STRATEJI_BOLGESI"].str.startswith("1.").sum())
-            rutin_sayisi = int(kraljic_df["STRATEJI_BOLGESI"].str.startswith("4.").sum())
+            stratejik_sayisi = int((kraljic_df["STRATEJI_BOLGESI"] == "Kritik / Sözleşmeli Alım").sum())
+            rutin_sayisi = int((kraljic_df["STRATEJI_BOLGESI"] == "Rutin / Spot Alım").sum())
             odak_bolge_not = (
                 f"Seçili odak ürününüz <b>{secili_odak_urun}</b>, <b>{odak_satir.iloc[0]['STRATEJI_BOLGESI']}</b> bölgesindedir."
                 if not odak_satir.empty
@@ -1988,8 +2076,8 @@ with sekme_strateji:
             st.markdown(
                 f"""<div class="insight-note"><b>💬 Kraljic Matrisi Yorumu:</b>
                 Seçili kategorilerde toplam <b>{len(kraljic_df)} ürünün</b> <b>{stratejik_sayisi} tanesi</b> yüksek maliyet ve yüksek riskli
-                <b>Stratejik (Kırmızı)</b> bölgede (uzun vadeli sözleşme şart), <b>{rutin_sayisi} tanesi</b> ise düşük riskli
-                <b>Rutin (Yeşil)</b> bölgededir. {odak_bolge_not}</div>""",
+                <b>Kritik / Sözleşmeli Alım</b> bölgesinde (uzun vadeli sözleşme şart), <b>{rutin_sayisi} tanesi</b> ise düşük riskli
+                <b>Rutin / Spot Alım</b> bölgesindedir. {odak_bolge_not}</div>""",
                 unsafe_allow_html=True,
             )
         else:
@@ -3110,7 +3198,6 @@ with sekme_simulator:
                     "SUBE_AYLIK_KG": float(varsayilan_kg_haritasi.get(u_ad, 200.0)),
                 }
             )
-
         df_editor_girdi = pd.DataFrame(editor_satirlari)
 
         st.markdown("#### ✏️ Aylık Tüketim Miktarı Giriş Tablosu (Şube Başı)")
