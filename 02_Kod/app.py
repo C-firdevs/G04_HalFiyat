@@ -722,6 +722,104 @@ def _kraljic_ve_makas_ozeti_hazirla(df_kaynak: pd.DataFrame, oynak_kolon: str):
     return kraljic_df, makas_ozet
 
 
+def _kume_rozeti_ve_ikame_goster(urun_adi: str, df_kumeler: pd.DataFrame, df_oz: pd.DataFrame) -> None:
+    """01_Veri/urun_kumeleri.csv varsa seçili ürünün küme rozetini ve aynı kümedeki daha ucuz ikame ürünleri gösterir."""
+    if df_kumeler.empty or not {"MAL_ADI", "KUME_NO"}.issubset(df_kumeler.columns):
+        return
+
+    urun_satir = df_kumeler[df_kumeler["MAL_ADI"] == urun_adi]
+    if urun_satir.empty:
+        return
+
+    kume_no = urun_satir.iloc[0]["KUME_NO"]
+    kume_adi = (
+        str(urun_satir.iloc[0]["KUME_ADI"]).strip()
+        if "KUME_ADI" in urun_satir.columns and pd.notna(urun_satir.iloc[0]["KUME_ADI"])
+        else f"Mevsimsel Küme {kume_no}"
+    )
+
+    ayni_kume_urunleri = (
+        df_kumeler[(df_kumeler["KUME_NO"] == kume_no) & (df_kumeler["MAL_ADI"] != urun_adi)]["MAL_ADI"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    # Aynı kümedeki ürünlerin ortalama reel fiyatlarını bulup seçili üründen DAHA UCUZ olanları öne çıkar
+    ucuz_ikameler = []
+    diger_ikameler = []
+    if not df_oz.empty and {"MAL_ADI", "REEL_ORTALAMA_UCRET"}.issubset(df_oz.columns):
+        fiyat_haritasi = df_oz.groupby("MAL_ADI")["REEL_ORTALAMA_UCRET"].mean().to_dict()
+        odak_fiyat = _guvenli_sayi(fiyat_haritasi.get(urun_adi, np.nan), np.nan)
+        for u in ayni_kume_urunleri:
+            u_f = _guvenli_sayi(fiyat_haritasi.get(u, np.nan), np.nan)
+            if pd.notna(odak_fiyat) and pd.notna(u_f) and u_f < odak_fiyat:
+                avantaj_pct = ((odak_fiyat - u_f) / odak_fiyat) * 100.0 if odak_fiyat > 0 else 0.0
+                ucuz_ikameler.append((u, u_f, avantaj_pct))
+            else:
+                diger_ikameler.append((u, u_f))
+        ucuz_ikameler.sort(key=lambda x: x[1])
+
+    if ucuz_ikameler:
+        ikame_satir = ", ".join(
+            [f"<b>{u}</b> ({f:.2f} ₺ • -%{pct:.0f})" for u, f, pct in ucuz_ikameler[:4]]
+        )
+        ikame_html = f"<b>🟢 Aynı Kümedeki Daha Ucuz İkame Ürünler:</b> {ikame_satir}"
+    elif ayni_kume_urunleri:
+        ikame_html = f"<b>🔄 Aynı Kümedeki Alternatif Ürünler:</b> {', '.join(ayni_kume_urunleri[:5])}"
+    else:
+        ikame_html = "Bu kümede başka ürün bulunmamaktadır."
+
+    st.markdown(
+        f"""
+        <div class="signal-card" style="border-left:5px solid #1B7A43; padding:12px 16px; min-height:auto; margin-bottom:14px; background:#F0FDF4;">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:6px;">
+                <span style="background:#1B7A43; color:#FFFFFF; padding:3px 10px; border-radius:999px; font-size:0.78rem; font-weight:700;">
+                    🧩 Mevsimsel Küme: {kume_adi}
+                </span>
+                <span style="color:#14532D; font-size:0.84rem; font-weight:600;">
+                    {urun_adi} bu mevsimsel davranış grubunda yer almaktadır.
+                </span>
+            </div>
+            <div style="color:#1E293B; font-size:0.85rem; line-height:1.45;">
+                {ikame_html}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _degisken_turkce_etiket(ham_ad: str) -> str:
+    """ozellik_onemi.csv içindeki teknik değişken adlarını kullanıcı dostu Türkçeye çevirir."""
+    harita = {
+        "REEL_ORTALAMA_UCRET": "Güncel Reel Fiyat",
+        "REEL_LAG_1": "1 Gün Önceki Reel Fiyat",
+        "REEL_LAG_7": "7 Gün Önceki Reel Fiyat",
+        "REEL_LAG_30": "30 Gün Önceki Reel Fiyat",
+        "REEL_DEGISIM_YUZDE": "Günlük Reel Değişim (%)",
+        "REEL_OYNAKLIK_7": "7 Günlük Fiyat Oynaklığı",
+        "REEL_OYNAKLIK_30": "30 Günlük Fiyat Oynaklığı",
+        "AY": "Yılın Ayı",
+        "HAFTA": "Yılın Haftası",
+        "YIL": "Yıl",
+        "MAL_ADI": "Ürün Adı",
+        "MAL_TURU": "Ürün Kategorisi",
+        "BIRIM": "Ölçü Birimi",
+        "ASGARI_UCRET": "Hal Taban Fiyatı",
+        "AZAMI_UCRET": "Hal Tavan Fiyatı",
+        "ORTALAMA_UCRET": "Hal Ortalama Fiyatı",
+    }
+    temiz = str(ham_ad).strip()
+    if temiz in harita:
+        return harita[temiz]
+    for k, v in harita.items():
+        if temiz.startswith(k + "_"):
+            ek = temiz[len(k) + 1 :]
+            return f"{v}: {ek}"
+    return temiz.replace("_", " ").title()
+
+
 @st.cache_resource(show_spinner=False)
 def modeli_yukle():
     """03_Model/model.joblib varsa yükler; yoksa None ve durum mesajı döndürür."""
@@ -824,7 +922,7 @@ st.markdown(
     <div class="snc-hero" translate="no">
         <div>
             <div class="snc-hero-title">🌿 SNC | Akıllı Satın Alma Platformu</div>
-            <div class="snc-hero-sub">İzmir Hal Fiyatları (2006–2025) &amp; TCMB EVDS TÜFE Bazlı Reel Karar Destek Sistemi</div>
+            <div class="snc-hero-sub">İzmir Hal Fiyatları (2006–2025) &amp; TÜFE Bazlı Reel Karar Destek Sistemi</div>
         </div>
         <div class="snc-hero-pill">🏪 {aktif_sube_sayisi} Aktif Şube • Odak: {secili_odak_urun}</div>
     </div>
@@ -1358,6 +1456,9 @@ with sekme_analiz:
             "**Alt Bölüm:** Haftanın en ucuz hal günü ve yıllar arası gerçek zam / TÜFE ayrıştırması."
         )
 
+    # Opsiyonel: 01_Veri/urun_kumeleri.csv varsa küme rozeti + daha ucuz ikame önerisi
+    _kume_rozeti_ve_ikame_goster(secili_odak_urun, VERILER.get("urun_kumeleri", pd.DataFrame()), df_ozellikli)
+
     df_urun = (
         df_ozellikli[df_ozellikli["MAL_ADI"] == secili_odak_urun]
         .dropna(subset=["TARIH"])
@@ -1597,6 +1698,7 @@ with sekme_analiz:
             df_gun["GUN_NO"] = pd.to_datetime(df_gun["TARIH"], errors="coerce").dt.dayofweek
             df_gun = df_gun[df_gun["GUN_NO"].isin(gun_haritasi.keys())].copy()
             df_gun["GUN_ADI"] = df_gun["GUN_NO"].map(gun_haritasi)
+
             gun_ozet = (
                 df_gun.groupby("GUN_ADI", as_index=False)
                 .agg(
@@ -2295,8 +2397,7 @@ with sekme_strateji:
             sabit_alim_ort = float(df_son_yil[fiyat_sutunu].mean())
             df_uygun_haftalar = df_son_yil[df_son_yil["UYGUN_MU"]]
 
-            if not df_uygun_haftalar.empty:
-                akilli_alim_ort = float(df_uygun_haftalar[fiyat_sutunu].mean())
+            if not df_uygun_haftalar.empty:                akilli_alim_ort = float(df_uygun_haftalar[fiyat_sutunu].mean())
                 uygun_hafta_sayisi = int(df_uygun_haftalar["HAFTA_DT"].nunique())
                 not_etiketi = f"Uygun Sinyal ({uygun_hafta_sayisi} Hafta)"
             else:
@@ -2710,69 +2811,8 @@ with sekme_karar:
                 "Bu öngörü istatistiksel bir tahmindir; ani hava olayları ve arz şokları nedeniyle kesin fiyat garantisi vermez."
             )
 
-            # Opsiyonel: urun_kumeleri.csv varsa aynı kümedeki ürünleri listele
-            df_kumeler = VERILER.get("urun_kumeleri", pd.DataFrame())
-            if not df_kumeler.empty and {"MAL_ADI", "KUME_NO"}.issubset(df_kumeler.columns):
-                urun_kume_satir = df_kumeler[df_kumeler["MAL_ADI"] == secili_odak_urun]
-                if not urun_kume_satir.empty:
-                    kume_no = urun_kume_satir.iloc[0]["KUME_NO"]
-                    kume_adi = (
-                        str(urun_kume_satir.iloc[0]["KUME_ADI"])
-                        if "KUME_ADI" in urun_kume_satir.columns
-                        and pd.notna(urun_kume_satir.iloc[0]["KUME_ADI"])
-                        else f"Küme {kume_no}"
-                    )
-                    ayni_kume_urunleri = (
-                        df_kumeler[
-                            (df_kumeler["KUME_NO"] == kume_no)
-                            & (df_kumeler["MAL_ADI"] != secili_odak_urun)
-                        ]["MAL_ADI"]
-                        .dropna()
-                        .unique()
-                        .tolist()
-                    )
-                    if ayni_kume_urunleri:
-                        st.markdown("#### 🔄 Aynı Mevsimsel Gruptaki Alternatif Ürünler")
-                        st.info(
-                            f"**{secili_odak_urun}** ürünü **{kume_adi}** grubundadır. "
-                            f"Alternatif olarak değerlendirilebilecek benzer ürünler: **{', '.join(ayni_kume_urunleri)}**"
-                        )
-
-            # Opsiyonel: model_karsilastirma.csv ve ozellik_onemi.csv
-            df_model_kars = VERILER.get("model_karsilastirma", pd.DataFrame())
-            df_ozellik_onemi = VERILER.get("ozellik_onemi", pd.DataFrame())
-
-            if not df_model_kars.empty:
-                st.markdown("#### 📊 Model Başarı Karşılaştırması")
-                st.dataframe(df_model_kars, use_container_width=True, hide_index=True)
-
-            if not df_ozellik_onemi.empty and len(df_ozellik_onemi.columns) >= 2:
-                st.markdown("#### 🧬 Tahmini En Çok Etkileyen Faktörler")
-                oz_df = df_ozellik_onemi.copy()
-                ad_kol = "DEGISKEN" if "DEGISKEN" in oz_df.columns else oz_df.columns[0]
-                skor_kol = "ONEM_SKORU" if "ONEM_SKORU" in oz_df.columns else oz_df.columns[1]
-                oz_df[skor_kol] = pd.to_numeric(oz_df[skor_kol], errors="coerce")
-                oz_df = oz_df.dropna(subset=[ad_kol, skor_kol]).sort_values(skor_kol, ascending=True).tail(12)
-                if not oz_df.empty:
-                    fig_oz = go.Figure(
-                        go.Bar(
-                            x=oz_df[skor_kol],
-                            y=oz_df[ad_kol].astype(str),
-                            orientation="h",
-                            marker_color="#1B7A43",
-                            text=[f"{v:.3f}" for v in oz_df[skor_kol]],
-                            textposition="outside",
-                        )
-                    )
-                    fig_oz.update_layout(
-                        height=280,
-                        margin=dict(l=10, r=30, t=15, b=10),
-                        xaxis_title="Etki Skoru",
-                        yaxis_title="Özellik",
-                        plot_bgcolor="#FFFFFF",
-                        paper_bgcolor="#FFFFFF",
-                    )
-                    st.plotly_chart(fig_oz, use_container_width=True)
+            # Opsiyonel: 01_Veri/urun_kumeleri.csv varsa seçili ürünün küme rozeti + daha ucuz ikame ürünler
+            _kume_rozeti_ve_ikame_goster(secili_odak_urun, VERILER.get("urun_kumeleri", pd.DataFrame()), df_ozellikli)
         else:
             st.warning("Seçili ürün için tahmin üretilecek kayıt bulunamadı.")
 
@@ -2911,7 +2951,7 @@ with sekme_karar:
             fig_teklif.update_layout(
                 height=250,
                 margin=dict(l=10, r=10, t=25, b=10),
-                yaxis_title=f"Birim Fiyat (TL / {birim_etiket})",
+                yaxis_title=f"Birim Fiyat (₺ / {birim_etiket})",
                 yaxis=dict(range=[0, max(son_azm, teklif_fiyat) * 1.24]),
                 plot_bgcolor="#FFFFFF",
                 paper_bgcolor="#FFFFFF",
@@ -2919,6 +2959,54 @@ with sekme_karar:
             st.plotly_chart(fig_teklif, use_container_width=True)
         else:
             st.warning("Tedarikçi teklif kontrolü için ürün fiyat kaydı bulunamadı.")
+
+    # -------------------------------------------------------------------------
+    # 4. OPSİYONEL AÇILIR BÖLÜM: MODEL PERFORMANS KARŞILAŞTIRMASI & DEĞİŞKEN ÖNEMİ
+    #    (01_Veri/model_karsilastirma.csv veya 01_Veri/ozellik_onemi.csv yoksa gizli kalır)
+    # -------------------------------------------------------------------------
+    df_model_kars = VERILER.get("model_karsilastirma", pd.DataFrame())
+    df_ozellik_onemi = VERILER.get("ozellik_onemi", pd.DataFrame())
+
+    if not df_model_kars.empty or (not df_ozellik_onemi.empty and len(df_ozellik_onemi.columns) >= 2):
+        st.divider()
+        with st.expander("📊 Model Performans Karşılaştırması ve Değişken Önem Düzeyleri", expanded=False):
+            mk_col1, mk_col2 = st.columns([1.05, 1.15], gap="large")
+            with mk_col1:
+                if not df_model_kars.empty:
+                    st.markdown("##### 🏆 Model Başarı Karşılaştırma Tablosu (Naif Baseline / Random Forest / Gradient Boosting)")
+                    st.dataframe(df_model_kars, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Model karşılaştırma tablosu henüz eklenmedi.")
+            with mk_col2:
+                if not df_ozellik_onemi.empty and len(df_ozellik_onemi.columns) >= 2:
+                    st.markdown("##### 🧬 Fiyat Tahminini En Çok Etkileyen Değişkenler")
+                    oz_df = df_ozellik_onemi.copy()
+                    ad_kol = "DEGISKEN" if "DEGISKEN" in oz_df.columns else oz_df.columns[0]
+                    skor_kol = "ONEM_SKORU" if "ONEM_SKORU" in oz_df.columns else oz_df.columns[1]
+                    oz_df[skor_kol] = pd.to_numeric(oz_df[skor_kol], errors="coerce")
+                    oz_df = oz_df.dropna(subset=[ad_kol, skor_kol]).sort_values(skor_kol, ascending=True).tail(12)
+                    if not oz_df.empty:
+                        oz_df["ETIKET_TR"] = oz_df[ad_kol].apply(_degisken_turkce_etiket)
+                        fig_oz = go.Figure(
+                            go.Bar(
+                                x=oz_df[skor_kol],
+                                y=oz_df["ETIKET_TR"],
+                                orientation="h",
+                                marker_color="#1B7A43",
+                                text=[f"{v:.3f}" for v in oz_df[skor_kol]],
+                                textposition="outside",
+                            )
+                        )
+                        fig_oz.update_layout(
+                            height=320,
+                            margin=dict(l=10, r=40, t=15, b=10),
+                            xaxis_title="Etki / Önem Skoru",
+                            yaxis_title="Değişken",
+                            xaxis=dict(range=[0, max(float(oz_df[skor_kol].max()) * 1.18, 0.1)]),
+                            plot_bgcolor="#FFFFFF",
+                            paper_bgcolor="#FFFFFF",
+                        )
+                        st.plotly_chart(fig_oz, use_container_width=True)
 
 # =============================================================================
 # 5. SEKME: 🏪 TASARRUF SİMÜLATÖRÜ
