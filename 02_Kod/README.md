@@ -60,10 +60,11 @@ G04_HalFiyat/
 
 ---
 
-## 🖥️ Arayüz Özellikleri (5 Sekme)
+## 🖥️ Arayüz Özellikleri (6 Sekme)
 
-1. **📊 Panel & Özet:** Kısa dönem oynaklığı (`REEL_OYNAKLIK_7 > REEL_OYNAKLIK_30`) artan ürünler için **Fiyat Şoku Alarmı**, 4 temel KPI kartı ve `.txt` olarak indirilebilen **Tek Tıkla Pazartesi Sabahı Yönetici Özeti**.
+1. **📊 Panel & Özet:** Kısa dönem oynaklığı (`REEL_OYNAKLIK_7 > REEL_OYNAKLIK_30`) artan ürünler için **Fiyat Şoku Alarmı**, 4 temel KPI kartı ve Kırmızı/Sarı/Yeşil renk kodlu **A4 PDF Pazartesi Sabahı Yönetici Brifingi**.
 2. **📅 Analiz & Zamanlama:** Nominal (`ASGARI_UCRET – AZAMI_UCRET` bandı) ve Reel fiyat geçmişi, **25 Ürün × 12 Ay En Ucuz Aylar Isı Haritası**, **Haftanın Hangi Günü Hal'e Gidilmeli?** analizi ve **Enflasyon Aynası (Nominal vs. TÜFE vs. Reel)**.
 3. **🎯 Strateji & Risk:** 4 bölgeli **Kraljic Satın Alma Matrisi**, **Pazarlık Gücü & Kalite Makası** ve son 1 yıllık **Backtest (Geçen Yıl Bu Sistemi Dinleseydik Ne Olurdu?)** simülasyonu.
-4. **🤖 Karar Ekranı:** 4 zaman dilimli sinyal kartı (Günlük/Haftalık/Aylık/Mevsimsel), `03_Model/model.joblib` (veya güvenli yedek trend) ile **Gelecek Hafta Fiyat Tahmini & Belirsizlik Aralığı**, küme bazlı ikame önerisi ve **Tedarikçi Teklif Kontrolü**.
-5. **🏪 Tasarruf Simülatörü:** Şube sayısı (1–50), fire oranı (%), depolama maliyeti (%) ve `st.data_editor` ile şube başı tüketim miktarlarına göre yıllık net tasarruf hesabı, fiziksel stok zararlıysa **Sabit Fiyat Sözleşmesi** uyarısı ve `openpyxl` ile biçimlendirilmiş **Kurumsal Excel (`.xlsx`) Satın Alma Planı** indirme özelliği.
+4. **🤖 Karar Ekranı:** 4 zaman dilimli durum kartı (Günlük/Haftalık/Aylık/Mevsimsel), `03_Model/model.joblib` (veya güvenli yedek trend) ile **Gelecek Hafta Fiyat Tahmini & Belirsizlik Aralığı**, küme bazlı ikame önerisi ve dinamik şube sayılı **Tedarikçi Teklif Kontrolü**.
+5. **🏪 Tasarruf Simülatörü:** Dinamik şube sayısı (1–50), beklenen zayi/bozulma oranı (%), depolama maliyeti (%), `st.data_editor` ile şube başı tüketim miktarları, **Senaryo A (Sözleşme) vs. Senaryo B (Karma Optimizasyon)** karşılaştırması ve 2 sayfalı trafik ışığı renk kodlu **Kurumsal Excel (`.xlsx`)** çıktısı.
+6. **🥗 Menü & Reçete:** 4 hazır Ege restoran tarifi + **Kendi Tarifini Oluşturma** modu, 12 aylık porsiyon maliyet eğrisi, **Maliyet Katili Malzeme** tespiti ve mevsimlik ikame ürün önerisi.
