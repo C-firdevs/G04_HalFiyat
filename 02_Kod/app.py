@@ -698,8 +698,8 @@ with sekme_panel:
                     f"+%{r['SOK_ORANI']:.1f}" if pd.notna(r["SOK_ORANI"]) else "Yüksek"
                 )
                 sok_urunler.append(
-                    f"**{r['MAL_ADI']}** (7G Oynaklık: `{r['REEL_OYNAKLIK_7']:.2f}` > "
-                    f"30G Oynaklık: `{r['REEL_OYNAKLIK_30']:.2f}` | Kısa Dönem İvme: `{oran_metni}`)"
+                    f"<b>{r['MAL_ADI']}</b> (7 Günlük Oynaklık: <b>{r['REEL_OYNAKLIK_7']:.2f}</b> &gt; "
+                    f"30 Günlük: {r['REEL_OYNAKLIK_30']:.2f} | İvme: <b>{oran_metni}</b>)"
                 )
 
     if sok_urunler:
