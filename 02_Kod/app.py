@@ -559,13 +559,14 @@ st.caption(
     "fiyat analizi, mevsimsellik takvimi ve yapay zekâ destekli satın alma platformu."
 )
 
-sekme_panel, sekme_analiz, sekme_strateji, sekme_karar, sekme_simulator = st.tabs(
+sekme_panel, sekme_analiz, sekme_strateji, sekme_karar, sekme_simulator, sekme_recete = st.tabs(
     [
         "📊 Panel & Özet",
         "📅 Analiz & Zamanlama",
         "🎯 Strateji & Risk",
         "🤖 Karar Ekranı",
         "🏪 Tasarruf Simülatörü",
+        "🥗 Menü & Reçete",
     ]
 )
 
@@ -2999,3 +3000,397 @@ with sekme_simulator:
             st.warning(f"Excel oluşturma için `openpyxl` paketi gereklidir ({e}).")
     else:
         st.warning("Simülasyonu başlatmak için lütfen yukarıdan en az 1 ürün seçin.")
+
+
+# =============================================================================
+# 6. SEKME: 🥗 MENÜ & REÇETE MALİYET ASİSTANI (HAZIR ŞABLON + SERBEST TARİF)
+# =============================================================================
+with sekme_recete:
+    st.subheader("🥗 Şefin Akıllı Menü & Reçete Maliyet Asistanı")
+    st.markdown(
+        f"""
+        <div class="guide-box">
+            <b>💡 Bu Ekran Ne İşe Yarar?</b>
+            Restoran menünüzdeki hazır bir tarifi seçin veya <b>kendi özel tarifinizi oluşturup</b> malzemelerini ekleyin.
+            Sistem <b>12 ay boyunca 1 porsiyonun sebze-meyve maliyetini</b>, <b>{aktif_sube_sayisi} şubenizin aylık toplam malzeme yükünü</b>
+            ve seçtiğiniz ayda maliyeti en çok şişiren ürüne karşı <b>mevsimlik ikame önerisini</b> otomatik hesaplar.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    mevcut_tum_urunler = (
+        sorted(df_aylik_reel["MAL_ADI"].dropna().unique().tolist())
+        if not df_aylik_reel.empty and "MAL_ADI" in df_aylik_reel.columns
+        else sorted(df_ozellikli["MAL_ADI"].dropna().unique().tolist())
+    )
+
+    HAZIR_TARIFLER = {
+        "🥗 Ege Akdeniz Yeşil Salata": {
+            "satis_fiyati": 220.0,
+            "gunluk_porsiyon": 45,
+            "malzemeler": [
+                ("MARUL AYSBERG", 0.15),
+                ("DOMATES SALKIM", 0.12),
+                ("Y.ROKA", 0.10),
+                ("LAHANA KIRMIZI", 0.08),
+                ("Y.MAYDONOZ", 0.05),
+            ],
+        },
+        "🥑 Avokadolu Tropikal Meyve Bowl": {
+            "satis_fiyati": 310.0,
+            "gunluk_porsiyon": 30,
+            "malzemeler": [
+                ("AVAKADO", 0.50),
+                ("MUZ ITHAL", 0.12),
+                ("CILEK", 0.10),
+                ("ANANAS", 0.25),
+                ("ELMA GOLDEN", 0.10),
+            ],
+        },
+        "🍆 Ege Izgara Sebze & Mantar Tabağı": {
+            "satis_fiyati": 280.0,
+            "gunluk_porsiyon": 35,
+            "malzemeler": [
+                ("PATLICAN UZUN", 0.15),
+                ("KABAK TAZE", 0.15),
+                ("MANTAR", 0.12),
+                ("PATATES CALMA", 0.18),
+                ("DOMATES SALKIM", 0.10),
+                ("SARIMSAK KURU", 0.02),
+            ],
+        },
+        "🥬 Zeytinyağlı Ege Meze Tabağı": {
+            "satis_fiyati": 250.0,
+            "gunluk_porsiyon": 40,
+            "malzemeler": [
+                ("FASULYE CALI", 0.15),
+                ("ISPANAK", 0.12),
+                ("PANCAR", 0.10),
+                ("Y.DEREOTU", 0.05),
+                ("Y.NANE", 0.05),
+                ("SARIMSAK KURU", 0.02),
+            ],
+        },
+        "✨ Kendi Tarifimi Oluştur (Özel Reçete)": {
+            "satis_fiyati": 260.0,
+            "gunluk_porsiyon": 30,
+            "malzemeler": [
+                (mevcut_tum_urunler[0], 0.15) if len(mevcut_tum_urunler) > 0 else ("DOMATES SALKIM", 0.15),
+                (mevcut_tum_urunler[1], 0.12) if len(mevcut_tum_urunler) > 1 else ("PATATES CALMA", 0.12),
+                (mevcut_tum_urunler[2], 0.10) if len(mevcut_tum_urunler) > 2 else ("MARUL AYSBERG", 0.10),
+            ],
+        },
+    }
+
+    r_ust1, r_ust2, r_ust3, r_ust4 = st.columns([1.4, 1.2, 0.9, 0.9])
+    with r_ust1:
+        secili_sablon = st.selectbox(
+            "📖 Hazır Tarif Seçin veya Özel Tarif Oluşturun",
+            options=list(HAZIR_TARIFLER.keys()),
+            index=0,
+            key="recete_sablon_sec",
+        )
+    sablon_bilgi = HAZIR_TARIFLER[secili_sablon]
+
+    with r_ust2:
+        if secili_sablon.startswith("✨"):
+            tarif_adi = st.text_input(
+                "✍️ Kendi Tarif Adınızı Yazın",
+                value="Şefin Özel Ege Tabağı",
+                key="recete_ozel_ad",
+            )
+        else:
+            tarif_adi = st.text_input(
+                "🍽️ Tarif Adı (Düzenlenebilir)",
+                value=secili_sablon,
+                key=f"recete_ad_{secili_sablon}",
+            )
+
+    with r_ust3:
+        menu_satis_fiyati = st.number_input(
+            "💳 Menü Satış Fiyatı (TL)",
+            min_value=10.0,
+            max_value=5000.0,
+            value=float(sablon_bilgi["satis_fiyati"]),
+            step=10.0,
+            key=f"recete_satis_{secili_sablon}",
+        )
+
+    with r_ust4:
+        recete_ay_no = st.selectbox(
+            "📅 Analiz Ayı",
+            options=list(AY_SIRASI.keys()),
+            format_func=lambda x: f"{x:02d} - {AY_SIRASI[x]}",
+            index=datetime.now().month - 1,
+            key="recete_ay_sec",
+        )
+        recete_ay_adi = AY_SIRASI[recete_ay_no]
+
+    r_alt_ayar1, r_alt_ayar2 = st.columns([2.2, 1.0])
+    with r_alt_ayar1:
+        sablon_urun_adlari = [
+            u for u, _ in sablon_bilgi["malzemeler"] if u in mevcut_tum_urunler
+        ]
+        if not sablon_urun_adlari and mevcut_tum_urunler:
+            sablon_urun_adlari = mevcut_tum_urunler[:3]
+
+        secili_malzemeler = st.multiselect(
+            "🥕 Reçete Malzemelerini Seçin / Ekleyin / Çıkarın:",
+            options=mevcut_tum_urunler,
+            default=sablon_urun_adlari,
+            key=f"recete_malz_sec_{secili_sablon}",
+        )
+    with r_alt_ayar2:
+        gunluk_sube_porsiyon = st.number_input(
+            "🍽️ Şube Başı Günlük Satış (Porsiyon)",
+            min_value=1,
+            max_value=2000,
+            value=int(sablon_bilgi["gunluk_porsiyon"]),
+            step=5,
+            key=f"recete_gunluk_pors_{secili_sablon}",
+        )
+
+    if secili_malzemeler:
+        # Her malzeme için birim, tür ve son güncel nominal/reel fiyatları bul
+        son_bilgi_map = {}
+        if not df_ozellikli.empty:
+            son_oz = (
+                df_ozellikli.dropna(subset=["MAL_ADI", "ORTALAMA_UCRET"])
+                .sort_values("TARIH")
+                .groupby("MAL_ADI", as_index=False)
+                .last()
+            )
+            for _, sr in son_oz.iterrows():
+                son_bilgi_map[str(sr["MAL_ADI"])] = {
+                    "BIRIM": str(sr.get("BIRIM", "KG")),
+                    "MAL_TURU": str(sr.get("MAL_TURU", "SEBZE")),
+                    "GUNCEL_FIYAT": _guvenli_sayi(sr.get("ORTALAMA_UCRET", 25.0), 25.0),
+                }
+
+        sablon_miktar_harita = {u: m for u, m in sablon_bilgi["malzemeler"]}
+        recete_editor_satirlari = []
+        for u in secili_malzemeler:
+            bilgi = son_bilgi_map.get(u, {"BIRIM": "KG", "MAL_TURU": "SEBZE", "GUNCEL_FIYAT": 25.0})
+            varsayilan_m = sablon_miktar_harita.get(u, 0.25 if bilgi["BIRIM"] in ["ADET", "BAĞ", "BAG"] else 0.12)
+            recete_editor_satirlari.append(
+                {
+                    "MAL_ADI": u,
+                    "MAL_TURU": bilgi["MAL_TURU"],
+                    "BIRIM": bilgi["BIRIM"],
+                    "PORSIYON_MIKTAR": float(varsayilan_m),
+                }
+            )
+
+        st.markdown(f"#### ⚖️ **{tarif_adi}** — 1 Porsiyon Malzeme Miktarları (Düzenlenebilir)")
+        st.caption(
+            "Örnek: 150 gram domates için `0.15` (KG), yarım avokado için `0.50` (ADET), yarım demet roka için `0.50` (BAĞ) yazabilirsiniz."
+        )
+        duzenlenen_recete = st.data_editor(
+            pd.DataFrame(recete_editor_satirlari),
+            column_config={
+                "MAL_ADI": st.column_config.TextColumn("Malzeme (MAL_ADI)", disabled=True),
+                "MAL_TURU": st.column_config.TextColumn("Kategori", disabled=True),
+                "BIRIM": st.column_config.TextColumn("Birim", disabled=True),
+                "PORSIYON_MIKTAR": st.column_config.NumberColumn(
+                    "1 Porsiyon Miktarı (KG / ADET / BAĞ)",
+                    min_value=0.01,
+                    max_value=10.0,
+                    step=0.01,
+                    format="%.2f",
+                ),
+            },
+            use_container_width=True,
+            hide_index=True,
+            key=f"recete_editor_{secili_sablon}",
+        )
+
+        # 12 Aylık Porsiyon Maliyetini Bugünün TL'sine Ölçekleyerek Hesapla
+        # Yöntem: Her malzemenin ilgili aydaki mevsimsel çarpanı (AYLIK_REEL_ORT / YILLIK_REEL_ORT) * güncel ORTALAMA_UCRET
+        yillik_reel_map = (
+            df_aylik_reel.groupby("MAL_ADI")["AYLIK_REEL_ORT"].mean().to_dict()
+            if not df_aylik_reel.empty
+            else {}
+        )
+        aylik_reel_lookup = (
+            df_aylik_reel.groupby(["MAL_ADI", "AY"])["AYLIK_REEL_ORT"].mean().to_dict()
+            if not df_aylik_reel.empty
+            else {}
+        )
+
+        aylik_porsiyon_maliyetleri = []
+        secili_ay_malzeme_detay = []
+
+        for ay_i in range(1, 13):
+            ay_toplam = 0.0
+            for _, mr in duzenlenen_recete.iterrows():
+                m_ad = str(mr["MAL_ADI"])
+                m_miktar = _guvenli_sayi(mr["PORSIYON_MIKTAR"], 0.10)
+                guncel_birim = son_bilgi_map.get(m_ad, {}).get("GUNCEL_FIYAT", 25.0)
+                yil_ort = _guvenli_sayi(yillik_reel_map.get(m_ad, 0.0), 0.0)
+                ay_ort = _guvenli_sayi(aylik_reel_lookup.get((m_ad, ay_i), yil_ort), yil_ort)
+                mevsim_carpan = (ay_ort / yil_ort) if yil_ort > 0 else 1.0
+                aylik_birim_tl = guncel_birim * mevsim_carpan
+                kalem_maliyet = m_miktar * aylik_birim_tl
+                ay_toplam += kalem_maliyet
+
+                if ay_i == recete_ay_no:
+                    secili_ay_malzeme_detay.append(
+                        {
+                            "MAL_ADI": m_ad,
+                            "MAL_TURU": str(mr["MAL_TURU"]),
+                            "BIRIM": str(mr["BIRIM"]),
+                            "PORSIYON_MIKTAR": m_miktar,
+                            "AYLIK_BIRIM_TL": round(aylik_birim_tl, 2),
+                            "KALEM_MALIYET_TL": round(kalem_maliyet, 2),
+                            "MEVSIM_CARPAN": mevsim_carpan,
+                        }
+                    )
+
+            aylik_porsiyon_maliyetleri.append(
+                {
+                    "AY": ay_i,
+                    "AY_ADI": AY_SIRASI[ay_i],
+                    "PORSIYON_MALIYET_TL": round(ay_toplam, 2),
+                }
+            )
+
+        df_recete_aylik = pd.DataFrame(aylik_porsiyon_maliyetleri)
+        df_kalem_detay = pd.DataFrame(secili_ay_malzeme_detay).sort_values(
+            "KALEM_MALIYET_TL", ascending=False
+        ).reset_index(drop=True)
+
+        secili_ay_maliyet = float(
+            df_recete_aylik[df_recete_aylik["AY"] == recete_ay_no].iloc[0]["PORSIYON_MALIYET_TL"]
+        )
+        en_ucuz_satir = df_recete_aylik.loc[df_recete_aylik["PORSIYON_MALIYET_TL"].idxmin()]
+        en_pahali_satir = df_recete_aylik.loc[df_recete_aylik["PORSIYON_MALIYET_TL"].idxmax()]
+        food_cost_yuzde = (secili_ay_maliyet / menu_satis_fiyati) * 100.0 if menu_satis_fiyati > 0 else 0.0
+        brut_kar_yuzde = max(0.0, 100.0 - food_cost_yuzde)
+        zincir_aylik_maliyet = secili_ay_maliyet * float(gunluk_sube_porsiyon) * 30.0 * float(aktif_sube_sayisi)
+
+        # 3 Özet Kart (Kesilmez .signal-card ile)
+        rk1, rk2, rk3 = st.columns(3)
+        rk1.markdown(
+            f"""
+            <div class="signal-card" style="border-top:4px solid #1B7A43;">
+                <div class="signal-card-title">{recete_ay_adi} Ayı 1 Porsiyon Malzeme Maliyeti</div>
+                <div class="signal-card-status" style="color:#1B7A43;">{secili_ay_maliyet:.2f} ₺ / Porsiyon</div>
+                <div class="signal-card-sub">Sebze-Meyve Maliyet Payı: <b>%{food_cost_yuzde:.1f}</b> | Kalan Brüt Marj: <b>%{brut_kar_yuzde:.1f}</b></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        rk2.markdown(
+            f"""
+            <div class="signal-card" style="border-top:4px solid #F59E0B;">
+                <div class="signal-card-title">Yıl İçi Maliyet Makası (En Ucuz vs. En Pahalı)</div>
+                <div class="signal-card-status" style="color:#B45309;">{en_ucuz_satir['PORSIYON_MALIYET_TL']:.2f} ₺ → {en_pahali_satir['PORSIYON_MALIYET_TL']:.2f} ₺</div>
+                <div class="signal-card-sub">En Ucuz: <b>{en_ucuz_satir['AY_ADI']}</b> • En Pahalı: <b>{en_pahali_satir['AY_ADI']}</b></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        rk3.markdown(
+            f"""
+            <div class="signal-card" style="border-top:4px solid #3B82F6;">
+                <div class="signal-card-title">{aktif_sube_sayisi} Şubelik Aylık Reçete Maliyeti ({recete_ay_adi})</div>
+                <div class="signal-card-status" style="color:#1D4ED8;">{zincir_aylik_maliyet:,.0f} ₺ / Ay</div>
+                <div class="signal-card-sub">Günlük {gunluk_sube_porsiyon} porsiyon/şube × 30 gün × {aktif_sube_sayisi} şube</div>
+            </div>
+            """.replace(",", "."),
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+
+        rec_sol, rec_sag = st.columns([1.25, 0.95], gap="large")
+        with rec_sol:
+            st.markdown(f"#### 📈 {tarif_adi} — 12 Aylık Porsiyon Maliyet Eğrisi (TL)")
+            fig_rec = go.Figure()
+            fig_rec.add_trace(
+                go.Scatter(
+                    x=df_recete_aylik["AY_ADI"],
+                    y=df_recete_aylik["PORSIYON_MALIYET_TL"],
+                    mode="lines+markers+text",
+                    line=dict(color="#1B7A43", width=3),
+                    marker=dict(
+                        size=[13 if a == recete_ay_no else 8 for a in df_recete_aylik["AY"]],
+                        color=[
+                            "#DC2626" if a == int(en_pahali_satir["AY"])
+                            else ("#16A34A" if a == int(en_ucuz_satir["AY"]) else "#1B7A43")
+                            for a in df_recete_aylik["AY"]
+                        ],
+                    ),
+                    text=[f"{v:.1f}₺" for v in df_recete_aylik["PORSIYON_MALIYET_TL"]],
+                    textposition="top center",
+                    name="1 Porsiyon Maliyeti (TL)",
+                )
+            )
+            fig_rec.update_layout(
+                height=340,
+                margin=dict(l=10, r=10, t=25, b=10),
+                xaxis_title="Ay",
+                yaxis_title="1 Porsiyon Sebze-Meyve Maliyeti (TL)",
+                yaxis=dict(range=[0, max(df_recete_aylik["PORSIYON_MALIYET_TL"].max() * 1.22, 5.0)]),
+                plot_bgcolor="#FFFFFF",
+                paper_bgcolor="#FFFFFF",
+            )
+            st.plotly_chart(fig_rec, use_container_width=True)
+
+        with rec_sag:
+            st.markdown(f"#### 🔥 {recete_ay_adi} Ayı Maliyet Dağılımı & Akıllı İkame Önerisi")
+            if not df_kalem_detay.empty:
+                maliyet_katili = df_kalem_detay.iloc[0]
+                katil_ad = str(maliyet_katili["MAL_ADI"])
+                katil_tur = str(maliyet_katili["MAL_TURU"])
+                katil_tutar = float(maliyet_katili["KALEM_MALIYET_TL"])
+                katil_pay = (katil_tutar / secili_ay_maliyet) * 100.0 if secili_ay_maliyet > 0 else 0.0
+
+                st.error(
+                    f"🔴 **Maliyet Katili Malzeme:** **{katil_ad}**\n\n"
+                    f"{recete_ay_adi} ayında bu tarifin porsiyon maliyetinin **%{katil_pay:.1f}**'ini "
+                    f"(`{katil_tutar:.2f} ₺ / porsiyon`) tek başına oluşturuyor."
+                )
+
+                # Aynı kategoride o ay mevsimsel çarpanı en düşük (en ucuz döneminde olan) ikame ürün bul
+                ikame_adaylari = []
+                for aday_u in mevcut_tum_urunler:
+                    if aday_u in secili_malzemeler:
+                        continue
+                    aday_bilgi = son_bilgi_map.get(aday_u, {})
+                    if aday_bilgi.get("MAL_TURU", "") == katil_tur:
+                        y_o = _guvenli_sayi(yillik_reel_map.get(aday_u, 0.0), 0.0)
+                        a_o = _guvenli_sayi(aylik_reel_lookup.get((aday_u, recete_ay_no), y_o), y_o)
+                        if y_o > 0:
+                            carpan = a_o / y_o
+                            tahmini_tl = aday_bilgi.get("GUNCEL_FIYAT", 25.0) * carpan
+                            ikame_adaylari.append((aday_u, carpan, tahmini_tl, aday_bilgi.get("BIRIM", "KG")))
+
+                if ikame_adaylari:
+                    ikame_adaylari.sort(key=lambda x: x[1])
+                    en_iyi_ikame = ikame_adaylari[0]
+                    indirim_pct = (1.0 - en_iyi_ikame[1]) * 100.0
+                    st.success(
+                        f"🟢 **Şefin Mevsimlik İkame Önerisi ({katil_tur}):** **{en_iyi_ikame[0]}**\n\n"
+                        f"{recete_ay_adi} ayında **{en_iyi_ikame[0]}** mevsiminde (yıllık ortalamasına göre "
+                        f"**%{abs(indirim_pct):.1f} {'daha ucuz' if indirim_pct >= 0 else 'seviyesinde'}**, "
+                        f"yaklaşık `{en_iyi_ikame[2]:.2f} ₺/{en_iyi_ikame[3]}`). "
+                        f"Menüde **{katil_ad}** payını azaltıp **{en_iyi_ikame[0]}** ile dengeleyerek kâr marjını koruyabilirsiniz."
+                    )
+
+                st.dataframe(
+                    df_kalem_detay[["MAL_ADI", "BIRIM", "PORSIYON_MIKTAR", "AYLIK_BIRIM_TL", "KALEM_MALIYET_TL"]].rename(
+                        columns={
+                            "MAL_ADI": "Malzeme",
+                            "BIRIM": "Birim",
+                            "PORSIYON_MIKTAR": "Miktar",
+                            "AYLIK_BIRIM_TL": f"{recete_ay_adi} Fiyatı (₺)",
+                            "KALEM_MALIYET_TL": "Porsiyon Tutarı (₺)",
+                        }
+                    ),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+    else:
+        st.warning("Reçete maliyetini hesaplamak için lütfen en az 1 malzeme seçin.")
