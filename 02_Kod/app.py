@@ -37,6 +37,45 @@ st.markdown(
     div[data-testid="stMetricValue"] > div {
         color: #1E293B;
         font-weight: 700;
+        font-size: 1.30rem !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        line-height: 1.25 !important;
+    }
+    div[data-testid="stMetricDelta"] > div {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        font-size: 0.80rem !important;
+        line-height: 1.25 !important;
+    }
+
+    /* 4 Zaman Dilimi Özel Sinyal Kartı (Asla Kesilmeyen Temiz Görünüm) */
+    .signal-card {
+        background-color: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+        min-height: 108px;
+    }
+    .signal-card-title {
+        color: #64748B;
+        font-size: 0.82rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+    .signal-card-status {
+        font-size: 1.15rem;
+        font-weight: 800;
+        margin-bottom: 6px;
+        line-height: 1.2;
+    }
+    .signal-card-sub {
+        color: #475569;
+        font-size: 0.80rem;
+        line-height: 1.3;
     }
 
     /* Sol menü (Sidebar) SNC Rozeti */
@@ -91,6 +130,18 @@ st.markdown(
         box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
         margin-top: 10px;
         margin-bottom: 14px;
+    }
+
+    /* Sekme İçi Kısa Okuma Rehberi Kutusu */
+    .guide-box {
+        background-color: #F0FDF4;
+        border: 1px solid #BBF7D0;
+        border-left: 4px solid #1B7A43;
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        color: #14532D;
+        font-size: 0.92rem;
     }
     </style>
     """,
@@ -440,13 +491,22 @@ with st.sidebar:
         """
         <div class="snc-badge">
             <h2>🌿 SNC | Akıllı Satın Alma</h2>
-            <p>Ege 12 Şube Restoran Zinciri Karar Destek Sistemi</p>
+            <p>Çok Şubeli Restoran Zinciri Karar Destek Sistemi</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown("### 🔎 Global Filtreler")
+    st.markdown("### 🏪 İşletme & Filtre Ayarları")
+
+    aktif_sube_sayisi = st.number_input(
+        "Aktif Şube Sayısı",
+        min_value=1,
+        max_value=100,
+        value=12,
+        step=1,
+        help="Restoran zincirinizdeki şube sayısını girin. Karar ekranı, teklif hesabı ve tasarruf simülatörü bu sayıya göre otomatik güncellenir.",
+    )
 
     mal_turleri = (
         sorted(df_ozellikli["MAL_TURU"].dropna().unique().tolist())
@@ -454,10 +514,10 @@ with st.sidebar:
         else ["SEBZE", "MEYVE", "ITHAL"]
     )
     secili_turler = st.multiselect(
-        "Mal Türü (`MAL_TURU`)",
+        "Ürün Kategorisi (Mal Türü)",
         options=mal_turleri,
         default=mal_turleri,
-        help="İthal kategorileri tek bir 'ITHAL' etiketi altında birleştirilmiştir.",
+        help="İthal ürünlerin tamamı tek bir 'ITHAL' kategorisinde birleştirilmiştir.",
     )
 
     if secili_turler and "MAL_TURU" in df_ozellikli.columns:
@@ -471,23 +531,23 @@ with st.sidebar:
         else ["DOMATES"]
     )
     secili_odak_urun = st.selectbox(
-        "Odak Ürün (`MAL_ADI`)",
+        "İncelenecek Odak Ürün",
         options=urun_listesi,
         index=0,
-        help="Detaylı analiz ve karar ekranlarında odaklanılacak ana ürünü seçin.",
+        help="Analiz, Strateji ve Karar ekranlarında detaylı incelenecek ürünü buradan seçin.",
     )
 
     st.divider()
-    st.markdown("### 🧠 Model & Sistem Durumu")
+    st.markdown("### 🧠 Tahmin Motoru Durumu")
     if MODEL_AKTIF:
-        st.success(f"🟢 **ML Modeli Aktif**\n\n`03_Model/model.joblib` devrede.")
+        st.success("🟢 **Makine Öğrenmesi Modeli Aktif**\n\n`03_Model/model.joblib` devrede.")
     else:
         st.warning(
             "🟡 **Yedek Tahmin Modu Aktif**\n\n"
-            "`03_Model/model.joblib` henüz eklenmedi. "
-            "Sistem geçmiş lag/mevsimsellik istatistikleriyle güvenli yedek modda çalışıyor."
+            "Eğitilmiş model (`03_Model/model.joblib`) henüz eklenmedi. "
+            "Sistem geçmiş fiyat trendleriyle güvenli yedek modda çalışıyor."
         )
-    st.caption("Veri Kaynağı: İzmir BB Açık Veri (2006–2025) & TCMB EVDS TÜFE")
+    st.caption("Kaynak: İzmir BB Hal Fiyatları (2006–2025) & TCMB EVDS TÜFE")
 
 
 # -----------------------------------------------------------------------------
@@ -495,8 +555,8 @@ with st.sidebar:
 # -----------------------------------------------------------------------------
 st.title("🌿 SNC | Hal Fiyatlarıyla Akıllı Satın Alma Karar Destek Sistemi")
 st.caption(
-    "Ege Bölgesi'ndeki 12 şubeli restoran zinciri için TÜFE bazlı reel fiyat, "
-    "mevsimsellik ve makine öğrenmesi destekli satın alma platformu."
+    f"Ege Bölgesi'ndeki **{aktif_sube_sayisi} şubeli** restoran zinciri için enflasyondan arındırılmış (reel) "
+    "fiyat analizi, mevsimsellik takvimi ve yapay zekâ destekli satın alma platformu."
 )
 
 sekme_panel, sekme_analiz, sekme_strateji, sekme_karar, sekme_simulator = st.tabs(
@@ -521,6 +581,17 @@ AY_TERS_SIRASI = {v: k for k, v in AY_SIRASI.items()}
 # 1. SEKME: 📊 PANEL & ÖZET
 # =============================================================================
 with sekme_panel:
+    st.markdown(
+        f"""
+        <div class="guide-box">
+            <b>💡 Bu Ekran Ne Gösterir?</b> Satın alma ekibinin sabah ekrana baktığında ilk görmesi gereken özet panodur:
+            <b>fiyatı aniden dalgalanan riskli ürünler</b>, 20 yıllık genel piyasa göstergeleri ve
+            <b>{aktif_sube_sayisi} şubeniz</b> için seçilen aya özel tek tıkla indirilebilir yönetici brifingi burada yer alır.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     # -------------------------------------------------------------------------
     # A) FİYAT ŞOKU ALARMI (Son kayıtlarda REEL_OYNAKLIK_7 > REEL_OYNAKLIK_30)
     # -------------------------------------------------------------------------
@@ -654,8 +725,8 @@ with sekme_panel:
     # -------------------------------------------------------------------------
     st.subheader("📋 Tek Tıkla Pazartesi Sabahı Yönetici Özeti")
     st.caption(
-        "12 şubeli restoran zincirinin satın alma toplantısı için seçilen aya özel "
-        "riskli ürünleri, gelecek ay zam beklenen kalemleri ve alım fırsatlarını tek tıkla raporlar."
+        f"{aktif_sube_sayisi} şubeli restoran zincirinin haftalık satın alma toplantısı için seçilen aya özel "
+        "riskli ürünleri, gelecek ay zam beklenen kalemleri ve alım fırsatlarını tek tıkla özetler."
     )
 
     ust_col1, ust_col2 = st.columns([1, 2])
@@ -778,42 +849,179 @@ with sekme_panel:
     firsat_md = "\n".join([f"  - {x}" for x in firsat_liste]) if firsat_liste else "  - Veri bulunamadı."
 
     ozet_markdown = f"""
-#### 🗓️ {secili_ay_adi} Ayı Pazartesi Sabahı Satın Alma & Yönetici Brifingi
-**1. ⚠️ Haftanın En Riskli (Fiyat Oynaklığı En Yüksek) 3 Ürünü ({secili_ay_adi}):**
-{risk_md}
+#### 🗓️ {secili_ay_adi} Ayı Pazartesi Sabahı Satın Alma & Yönetici Brifingi ({aktif_sube_sayisi} Şube)
 
-**2. 📈 Gelecek Ay ({gelecek_ay_adi}) Fiyatı En Çok Artacak 3 Ürün (Önden Stok / Sözleşme Önerisi):**
-{artis_md}
+<div style="background:#FEE2E2; border-left:5px solid #DC2626; padding:12px 16px; border-radius:8px; margin-bottom:10px; color:#7F1D1D;">
+    <b>🔴 KÖTÜ / YÜKSEK RİSK — Haftanın En Oynak 3 Ürünü ({secili_ay_adi}):</b><br>
+    {"<br>".join([f"• {x}" for x in riskli_3_liste]) if riskli_3_liste else "• Veri bulunamadı."}
+</div>
 
-**3. 🟢 {secili_ay_adi} Ayında En Uygun Dönemde Olan Fırsat Ürünleri (Menü & Toplu Alım Önerisi):**
-{firsat_md}
+<div style="background:#FEF9C3; border-left:5px solid #CA8A04; padding:12px 16px; border-radius:8px; margin-bottom:10px; color:#713F12;">
+    <b>🟡 TEHLİKELİ / ZAM UYARISI — Gelecek Ay ({gelecek_ay_adi}) Fiyatı En Çok Artacak 3 Ürün:</b><br>
+    {"<br>".join([f"• {x}" for x in artis_3_liste]) if artis_3_liste else "• Veri bulunamadı."}
+</div>
+
+<div style="background:#DCFCE7; border-left:5px solid #16A34A; padding:12px 16px; border-radius:8px; margin-bottom:6px; color:#14532D;">
+    <b>🟢 İYİ / FIRSAT — {secili_ay_adi} Ayında En Uygun Dönemde Olan Ürünler:</b><br>
+    {"<br>".join([f"• {x}" for x in firsat_liste]) if firsat_liste else "• Veri bulunamadı."}
+</div>
 """.strip()
 
-    ozet_txt_icerik = (
-        f"SNC | AKILLI SATIN ALMA - PAZARTESI SABAHI YONETICI OZETI\n"
-        f"Rapor Tarihi: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
-        f"Analiz Donemi: {secili_ay_adi} (Gelecek Ay Karsilastirmasi: {gelecek_ay_adi})\n"
-        f"Kapsam: Ege 12 Subeli Restoran Zinciri\n"
-        f"{'=' * 72}\n\n"
-        f"1. HAFTANIN EN RISKLI (OYNAKLIGI EN YUKSEK) 3 URUNU ({secili_ay_adi.upper()}):\n"
-        + ("\n".join([f"   * {x}" for x in riskli_3_liste]) if riskli_3_liste else "   * Veri yok")
-        + f"\n\n2. GELECEK AY ({gelecek_ay_adi.upper()}) FIYATI EN COK ARTACAK 3 URUN:\n"
-        + ("\n".join([f"   * {x}" for x in artis_3_liste]) if artis_3_liste else "   * Veri yok")
-        + f"\n\n3. {secili_ay_adi.upper()} AYINDA EN UYGUN DONEMDEKI FIRSAT URUNLERI:\n"
-        + ("\n".join([f"   * {x}" for x in firsat_liste]) if firsat_liste else "   * Veri yok")
-        + f"\n\n{'=' * 72}\n"
-        f"Not: Fiyatlar TCMB EVDS TUFE endeksi ile enflasyondan arindirilmis reel fiyatlardir.\n"
-    )
+    def _brifing_pdf_olustur(
+        ay_adi: str,
+        gel_ay_adi: str,
+        sube_say: int,
+        riskler: list,
+        artislar: list,
+        firsatlar: list,
+    ) -> bytes:
+        import textwrap
+        import matplotlib.pyplot as plt
+        from matplotlib.patches import FancyBboxPatch
+
+        fig = plt.figure(figsize=(8.27, 11.69), dpi=150)  # A4 Dikey
+        ax = fig.add_axes([0, 0, 1, 1])
+        ax.set_xlim(0, 100)
+        ax.set_ylim(0, 140)
+        ax.axis("off")
+        fig.patch.set_facecolor("#F8FAFC")
+
+        # Üst Kurumsal Başlık Bandı (#1B7A43)
+        header_box = FancyBboxPatch(
+            (4, 122), 92, 14, boxstyle="round,pad=0.6,rounding_size=1.8",
+            facecolor="#1B7A43", edgecolor="#14532D", linewidth=1.2
+        )
+        ax.add_patch(header_box)
+        ax.text(
+            50, 131.2, "SNC | AKILLI SATIN ALMA — PAZARTESİ SABAHI YÖNETİCİ BRİFİNGİ",
+            color="white", fontsize=13.5, fontweight="bold", ha="center", va="center"
+        )
+        ax.text(
+            50, 125.8,
+            f"Dönem: {ay_adi}  (Gelecek Ay: {gel_ay_adi})   |   Kapsam: {sube_say} Şubeli Restoran Zinciri   |   Tarih: {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+            color="#DCFCE7", fontsize=9.2, ha="center", va="center"
+        )
+
+        # Özet Bilgi Şeridi
+        meta_box = FancyBboxPatch(
+            (4, 113.5), 92, 6.2, boxstyle="round,pad=0.4,rounding_size=1.2",
+            facecolor="#FFFFFF", edgecolor="#CBD5E1", linewidth=0.9
+        )
+        ax.add_patch(meta_box)
+        ax.text(
+            50, 116.6,
+            "Renk Kodu Rehberi:   [KIRMIZI] Yüksek Oynaklık / Kötü Risk     |     [SARI] Tehlikeli / Zam Uyarısı     |     [YEŞİL] İyi / Alım Fırsatı",
+            color="#334155", fontsize=8.8, fontweight="bold", ha="center", va="center"
+        )
+
+        def _bolum_kutusu_ciz(y_ust, baslik, maddeler, arka_renk, kenar_renk, baslik_renk, yazi_renk, etiket):
+            satirlar = []
+            for m in (maddeler if maddeler else ["Veri bulunamadı."]):
+                sarili = textwrap.wrap(f"• {m}", width=84)
+                satirlar.extend(sarili)
+            kutu_yukseklik = max(24.0, 9.5 + len(satirlar) * 3.5)
+            y_alt = y_ust - kutu_yukseklik
+
+            kutu = FancyBboxPatch(
+                (4, y_alt), 92, kutu_yukseklik,
+                boxstyle="round,pad=0.5,rounding_size=1.8",
+                facecolor=arka_renk, edgecolor=kenar_renk, linewidth=1.6
+            )
+            ax.add_patch(kutu)
+
+            # Sol kalın vurgu şeridi
+            serit = FancyBboxPatch(
+                (4, y_alt), 1.8, kutu_yukseklik,
+                boxstyle="round,pad=0.0,rounding_size=0.6",
+                facecolor=kenar_renk, edgecolor=kenar_renk, linewidth=0.5
+            )
+            ax.add_patch(serit)
+
+            # Durum rozeti (sağ üst)
+            rozet = FancyBboxPatch(
+                (75, y_ust - 6.2), 19, 4.4,
+                boxstyle="round,pad=0.2,rounding_size=1.0",
+                facecolor=kenar_renk, edgecolor=kenar_renk, linewidth=0.5
+            )
+            ax.add_patch(rozet)
+            ax.text(84.5, y_ust - 4.0, etiket, color="white", fontsize=8.5, fontweight="bold", ha="center", va="center")
+
+            ax.text(8.0, y_ust - 4.2, baslik, color=baslik_renk, fontsize=11.0, fontweight="bold", ha="left", va="center")
+
+            y_cursor = y_ust - 9.5
+            for s in satirlar:
+                ax.text(8.2, y_cursor, s, color=yazi_renk, fontsize=9.3, ha="left", va="top")
+                y_cursor -= 3.5
+
+            return y_alt - 4.0
+
+        # 1. KIRMIZI KUTU: Kötü / En Riskli 3 Ürün
+        y_sonraki = _bolum_kutusu_ciz(
+            109.5,
+            f"1. Haftanın En Riskli (Yüksek Oynaklıklı) 3 Ürünü — {ay_adi}",
+            riskler,
+            arka_renk="#FEE2E2",
+            kenar_renk="#DC2626",
+            baslik_renk="#991B1B",
+            yazi_renk="#7F1D1D",
+            etiket="KÖTÜ / RİSKLİ",
+        )
+
+        # 2. SARI KUTU: Tehlikeli / Gelecek Ay Fiyatı En Çok Artacak 3 Ürün
+        y_sonraki = _bolum_kutusu_ciz(
+            y_sonraki,
+            f"2. Gelecek Ay ({gel_ay_adi}) Fiyatı En Çok Artacak 3 Ürün",
+            artislar,
+            arka_renk="#FEF9C3",
+            kenar_renk="#CA8A04",
+            baslik_renk="#854D0E",
+            yazi_renk="#713F12",
+            etiket="TEHLİKELİ / UYARI",
+        )
+
+        # 3. YEŞİL KUTU: İyi / Fırsat Ürünleri
+        _bolum_kutusu_ciz(
+            y_sonraki,
+            f"3. {ay_adi} Ayında En Uygun Dönemdeki Fırsat Ürünleri",
+            firsatlar,
+            arka_renk="#DCFCE7",
+            kenar_renk="#16A34A",
+            baslik_renk="#166534",
+            yazi_renk="#14532D",
+            etiket="İYİ / FIRSAT",
+        )
+
+        # Alt Bilgi (Footer)
+        ax.text(
+            50, 5.5,
+            "SNC | Akıllı Satın Alma Karar Destek Sistemi  •  Veri Kaynağı: İzmir BB Hal Fiyatları (2006–2025) & TCMB EVDS TÜFE",
+            color="#64748B", fontsize=8.2, ha="center", va="center"
+        )
+
+        tampon = BytesIO()
+        fig.savefig(tampon, format="pdf", facecolor=fig.get_facecolor())
+        plt.close(fig)
+        tampon.seek(0)
+        return tampon.getvalue()
 
     st.markdown('<div class="exec-summary-card">', unsafe_allow_html=True)
-    st.markdown(ozet_markdown)
+    st.markdown(ozet_markdown, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
+    pdf_bayt = _brifing_pdf_olustur(
+        ay_adi=secili_ay_adi,
+        gel_ay_adi=gelecek_ay_adi,
+        sube_say=aktif_sube_sayisi,
+        riskler=riskli_3_liste,
+        artislar=artis_3_liste,
+        firsatlar=firsat_liste,
+    )
+
     st.download_button(
-        label=f"📥 Özeti İndir (.txt) — {secili_ay_adi} Brifingi",
-        data=ozet_txt_icerik.encode("utf-8"),
-        file_name=f"SNC_Yonetici_Ozeti_{secili_ay_adi}.txt",
-        mime="text/plain",
+        label=f"📄 Yönetici Brifingini İndir (.pdf) — {secili_ay_adi} Raporu",
+        data=pdf_bayt,
+        file_name=f"SNC_Yonetici_Brifingi_{secili_ay_adi}.pdf",
+        mime="application/pdf",
         type="primary",
     )
 
@@ -846,9 +1054,16 @@ with sekme_panel:
 # =============================================================================
 with sekme_analiz:
     st.subheader(f"📅 Analiz & Satın Alma Zamanlaması — Odak Ürün: **{secili_odak_urun}**")
-    st.caption(
-        "Sol menüden seçilen odak ürünün nominal (Min–Max fiyat bandı) / reel fiyat geçmişi, "
-        "25 ürünlük 12 ay mevsimsellik ısı haritası, haftanın en uygun hal günü ve enflasyon ayrıştırma analizi."
+    st.markdown(
+        """
+        <div class="guide-box">
+            <b>💡 Bu Ekran Nasıl Okunur?</b>
+            <b>Sol Üst:</b> Ürünün yıllar içindeki fiyat değişimini gösterir (<i>Nominal</i> etiket fiyatı, <i>Reel</i> ise enflasyondan arındırılmış gerçek değerdir).
+            <b>Sağ Üst:</b> <b>Yeşil</b> kutular o ürünün yıl içindeki <b>en ucuz aylarını</b>, <b>Kırmızı</b> kutular <b>en pahalı aylarını</b> gösterir.
+            <b>Alt Bölüm:</b> Haftanın hangi günü halden daha ucuza alınabileceğini ve yıllar arası fiyat artışının ne kadarının gerçek zam, ne kadarının TÜFE enflasyonu olduğunu gösterir.
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     df_urun = (
@@ -1226,9 +1441,16 @@ with sekme_analiz:
 # =============================================================================
 with sekme_strateji:
     st.subheader("🎯 Stratejik Satın Alma, Risk Matrisi ve Geçmiş Performans (Backtest)")
-    st.caption(
-        "Kraljic 4 bölgeli satın alma strateji matrisi, hal içi kalite/pazarlık makası (`AZAMI - ASGARI`) "
-        "ve geçmiş 1 yıllık karar destek geri-test (backtest) simülasyonu."
+    st.markdown(
+        """
+        <div class="guide-box">
+            <b>💡 Bu Ekran Nasıl Okunur?</b>
+            <b>1. Kraljic Matrisi (Sol):</b> Sağ üstteki <b>Kırmızı (Stratejik)</b> ürünler hem pahalı hem çok dalgalıdır; bunlarda <i>sabit fiyatlı sözleşme</i> şarttır.
+            <b>2. Pazarlık Makası (Sağ):</b> Aynı gün haldeki en düşük ve en yüksek fiyat farkı yüksek olan ürünlerde <i>pazarlık gücü</i> yüksektir.
+            <b>3. Geri-Test / Backtest (Alt):</b> Geçen 1 yılda her hafta sabit alan bir restoran ile sistemin <i>'UYGUN'</i> dediği haftalarda alan restoranın gerçek maliyet farkını kanıtlar.
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     # -------------------------------------------------------------------------
@@ -1578,10 +1800,17 @@ with sekme_strateji:
 # 4. SEKME: 🤖 KARAR EKRANI
 # =============================================================================
 with sekme_karar:
-    st.subheader(f"🤖 Yapay Zekâ Destekli Satın Alma Karar Ekranı — **{secili_odak_urun}**")
-    st.caption(
-        "4 zaman dilimli (Günlük, Haftalık, Aylık, Mevsimsel) piyasa sinyali, 12 özellikli makine öğrenmesi "
-        "gelecek hafta fiyat tahmini (belirsizlik aralığı ile) ve tedarikçi teklif denetçisi."
+    st.subheader(f"🤖 Akıllı Satın Alma Karar Ekranı — **{secili_odak_urun}**")
+    st.markdown(
+        f"""
+        <div class="guide-box">
+            <b>💡 Bu Ekran Ne İşe Yarar?</b> Seçtiğiniz ürün için satın alma kararını <b>3 net adımda</b> vermenizi sağlar:<br>
+            <b>1. Adım (Üst):</b> Piyasa şu an tarihsel ortalamaya göre ucuz mu pahalı mı? (Günlük / Haftalık / Aylık / Mevsimsel)<br>
+            <b>2. Adım (Sol):</b> Gelecek hafta fiyatın artması mı düşmesi mi bekleniyor? <i>(Şimdi Al / Bekle / Normal)</i><br>
+            <b>3. Adım (Sağ):</b> Tedarikçinin <b>{aktif_sube_sayisi} şubeniz</b> için verdiği fiyat teklifi hal piyasasına göre uygun mu, pazarlık mı yapmalısınız?
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     df_urun_karar = (
@@ -1594,9 +1823,9 @@ with sekme_karar:
     )
 
     # -------------------------------------------------------------------------
-    # 1. 4 ZAMAN DİLİMLİ SİNYAL KARTI (GÜNLÜK / HAFTALIK / AYLIK / MEVSİMSEL DURUM)
+    # 1. ADIM: PİYASA ŞU AN UCUZ MU PAHALI MI? (4 ZAMAN DİLİMİ SİNYALİ)
     # -------------------------------------------------------------------------
-    st.markdown(f"#### 📡 {secili_odak_urun} — 4 Zaman Dilimli Satın Alma Sinyalleri (`DURUM`)")
+    st.markdown(f"#### 1️⃣ Piyasa Şu An Ucuz mu Pahalı mı? — 4 Zaman Dilimi Özeti ({secili_odak_urun})")
 
     def _sinyal_getir(df_k: pd.DataFrame, zaman_kolon: str, fiyat_kolon: str, yedek_etiket: str):
         if not df_k.empty and {"MAL_ADI", "DURUM"}.issubset(df_k.columns):
@@ -1607,48 +1836,65 @@ with sekme_karar:
                 son = kesit.iloc[-1]
                 durum = str(son["DURUM"]).strip()
                 fiyat_bilgi = (
-                    f"Ort.: {float(son[fiyat_kolon]):.2f} TL"
+                    f"Ort. Fiyat: {float(son[fiyat_kolon]):.2f} TL"
                     if fiyat_kolon in son and pd.notna(son[fiyat_kolon])
                     else str(son.get(zaman_kolon, ""))
                 )
                 return durum, fiyat_bilgi
-        # Yedek hesaplama (CSV yerelde yoksa df_urun_karar üzerinden)
         if not df_urun_karar.empty and "ORTALAMA_UCRET" in df_urun_karar.columns:
-            genel_ort = float(df_urun_karar["ORTALAMA_UCRET"].mean())
-            son_fiyat = float(df_urun_karar.iloc[-1]["ORTALAMA_UCRET"])
+            genel_ort = _guvenli_sayi(df_urun_karar["ORTALAMA_UCRET"].mean(), 1.0)
+            son_fiyat = _guvenli_sayi(df_urun_karar.iloc[-1]["ORTALAMA_UCRET"], genel_ort)
             if son_fiyat < genel_ort * 0.90:
-                return f"UYGUN {yedek_etiket}", f"Son: {son_fiyat:.2f} TL"
+                return f"UYGUN {yedek_etiket}", f"Son Fiyat: {son_fiyat:.2f} TL"
             if son_fiyat > genel_ort * 1.10:
-                return f"PAHALI {yedek_etiket}", f"Son: {son_fiyat:.2f} TL"
-            return "NORMAL", f"Son: {son_fiyat:.2f} TL"
+                return f"PAHALI {yedek_etiket}", f"Son Fiyat: {son_fiyat:.2f} TL"
+            return "NORMAL", f"Son Fiyat: {son_fiyat:.2f} TL"
         return "NORMAL", "Veri Bekleniyor"
 
-    def _sinyal_ikonu(durum_metni: str) -> str:
+    def _sinyal_stil(durum_metni: str) -> tuple[str, str, str, str]:
         u = durum_metni.upper()
         if "UYGUN" in u:
-            return f"🟢 {durum_metni}"
+            return "🟢 UYGUN", "Alım Fırsatı", "#15803D", "#DCFCE7"
         if "PAHALI" in u:
-            return f"🔴 {durum_metni}"
-        return f"🟡 {durum_metni}"
+            return "🔴 PAHALI", "Dikkatli Al", "#B91C1C", "#FEE2E2"
+        return "🟡 NORMAL", "Piyasa Dengeli", "#A16207", "#FEF9C3"
 
     gun_durum, gun_detay = _sinyal_getir(df_gunluk_karar, "GUN", "GUNLUK_ORT_FIYAT", "GUN")
     haf_durum, haf_detay = _sinyal_getir(df_haftalik_karar, "HAFTA", "HAFTALIK_ORT_FIYAT", "HAFTA")
     ay_durum, ay_detay = _sinyal_getir(df_aylik_karar, "AY", "AYLIK_ORT_FIYAT", "DONEM")
     mev_durum, mev_detay = _sinyal_getir(df_mevsimsel_karar, "MEVSIM", "MEVSIMLIK_ORT_FIYAT", "MEVSIM")
 
-    s_col1, s_col2, s_col3, s_col4 = st.columns(4)
-    s_col1.metric("1. Günlük Sinyal", _sinyal_ikonu(gun_durum), gun_detay)
-    s_col2.metric("2. Haftalık Sinyal", _sinyal_ikonu(haf_durum), haf_detay)
-    s_col3.metric("3. Aylık Sinyal", _sinyal_ikonu(ay_durum), ay_detay)
-    s_col4.metric("4. Mevsimsel Sinyal", _sinyal_ikonu(mev_durum), mev_detay)
+    sinyal_kartlari = [
+        ("Günlük Durum", gun_durum, gun_detay),
+        ("Haftalık Durum", haf_durum, haf_detay),
+        ("Aylık Durum", ay_durum, ay_detay),
+        ("Mevsimsel Durum", mev_durum, mev_detay),
+    ]
+
+    s_kolonlar = st.columns(4)
+    for col_obj, (baslik, ham_durum, detay) in zip(s_kolonlar, sinyal_kartlari):
+        etiket, aciklama, yazi_renk, arka_renk = _sinyal_stil(ham_durum)
+        col_obj.markdown(
+            f"""
+            <div class="signal-card" style="border-top: 4px solid {yazi_renk};">
+                <div class="signal-card-title">{baslik}</div>
+                <div class="signal-card-status" style="color: {yazi_renk};">{etiket}</div>
+                <div class="signal-card-sub">
+                    <span style="background:{arka_renk}; color:{yazi_renk}; padding:2px 7px; border-radius:6px; font-weight:600;">{aciklama}</span>
+                    <div style="margin-top:5px;">{detay}</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.divider()
 
     # -------------------------------------------------------------------------
-    # 2. SOL SÜTUN: GELECEK HAFTA FİYAT TAHMİNİ (12 SÜTUNLU ML / YEDEK) & KÜME İKAMESİ
-    #    SAĞ SÜTUN: TEDARİKÇİ TEKLİF KONTROLÜ (ASGARI - ORTALAMA - AZAMI)
+    # 2. ADIM (SOL): GELECEK HAFTA FİYAT TAHMİNİ & ALIM KARARI
+    # 3. ADIM (SAĞ): TEDARİKÇİ TEKLİF KONTROLÜ (DİNAMİK ŞUBE SAYILI)
     # -------------------------------------------------------------------------
-    karar_sol, karar_sag = st.columns([1.15, 0.95], gap="large")
+    karar_sol, karar_sag = st.columns([1.1, 1.0], gap="large")
 
     MODEL_SUTUNLARI_12 = [
         "MAL_ADI",
@@ -1666,12 +1912,12 @@ with sekme_karar:
     ]
 
     with karar_sol:
-        st.markdown(f"#### 🔮 Gelecek Hafta Reel Fiyat Tahmini & Alım Kararı ({secili_odak_urun})")
+        st.markdown(f"#### 2️⃣ Gelecek Hafta Fiyat Ne Olur? — Şimdi Al / Bekle ({secili_odak_urun})")
 
         if not df_urun_karar.empty:
             son_kayit = df_urun_karar.iloc[-1]
             son_tarih = pd.to_datetime(son_kayit["TARIH"], errors="coerce")
-            guncel_reel = float(son_kayit.get("REEL_ORTALAMA_UCRET", 0.0))
+            guncel_reel = _guvenli_sayi(son_kayit.get("REEL_ORTALAMA_UCRET", 0.0), 10.0)
             birim_adi = str(son_kayit.get("BIRIM", "KG"))
             mal_turu_adi = str(son_kayit.get("MAL_TURU", "SEBZE"))
 
@@ -1689,9 +1935,9 @@ with sekme_karar:
             def _guvenli_float(kolon_adi: str, varsayilan: float) -> float:
                 deger = son_kayit.get(kolon_adi, np.nan)
                 if pd.notna(deger):
-                    return float(deger)
+                    return _guvenli_sayi(deger, varsayilan)
                 if kolon_adi in df_urun_karar.columns and df_urun_karar[kolon_adi].notna().any():
-                    return float(df_urun_karar[kolon_adi].dropna().iloc[-1])
+                    return _guvenli_sayi(df_urun_karar[kolon_adi].dropna().iloc[-1], varsayilan)
                 return varsayilan
 
             lag_1 = _guvenli_float("REEL_LAG_1", guncel_reel)
@@ -1701,28 +1947,28 @@ with sekme_karar:
             oyn_7 = _guvenli_float("REEL_OYNAKLIK_7", max(guncel_reel * 0.05, 1.0))
             oyn_30 = _guvenli_float("REEL_OYNAKLIK_30", max(guncel_reel * 0.08, 1.5))
 
-            # Kullanıcı isterse girdi parametrelerini inceleyip simüle edebilsin
-            with st.expander("⚙️ Tahmin Girdi Değişkenlerini (12 Sütun Sözleşmesi) İncele / Özelleştir", expanded=False):
+            with st.expander("⚙️ İleri Düzey: Tahmin Parametrelerini (Senaryo Testi) Düzenle", expanded=False):
+                st.caption("Varsayılan değerler ürünün son hal kayıtlarından otomatik doldurulur. Farklı bir piyasa senaryosunu test etmek için değerleri değiştirebilirsiniz.")
                 g_c1, g_c2, g_c3 = st.columns(3)
                 with g_c1:
-                    ay_girdi = st.number_input("AY (1-12)", min_value=1, max_value=12, value=ay_degeri, key="k_ay")
-                    hafta_girdi = st.number_input("HAFTA (1-53)", min_value=1, max_value=53, value=hafta_degeri, key="k_hafta")
+                    ay_girdi = st.number_input("Ay (1-12)", min_value=1, max_value=12, value=ay_degeri, key="k_ay")
+                    hafta_girdi = st.number_input("Yılın Haftası (1-53)", min_value=1, max_value=53, value=hafta_degeri, key="k_hafta")
                     reel_girdi = st.number_input(
-                        "REEL_ORTALAMA_UCRET", min_value=0.01, value=round(guncel_reel, 2), step=0.5, key="k_reel"
+                        "Güncel Reel Fiyat (TL)", min_value=0.01, value=round(guncel_reel, 2), step=0.5, key="k_reel"
                     )
                 with g_c2:
-                    lag1_girdi = st.number_input("REEL_LAG_1", min_value=0.01, value=round(lag_1, 2), step=0.5, key="k_l1")
-                    lag7_girdi = st.number_input("REEL_LAG_7", min_value=0.01, value=round(lag_7, 2), step=0.5, key="k_l7")
-                    lag30_girdi = st.number_input("REEL_LAG_30", min_value=0.01, value=round(lag_30, 2), step=0.5, key="k_l30")
+                    lag1_girdi = st.number_input("1 Gün Önceki Fiyat", min_value=0.01, value=round(lag_1, 2), step=0.5, key="k_l1")
+                    lag7_girdi = st.number_input("7 Gün Önceki Fiyat", min_value=0.01, value=round(lag_7, 2), step=0.5, key="k_l7")
+                    lag30_girdi = st.number_input("30 Gün Önceki Fiyat", min_value=0.01, value=round(lag_30, 2), step=0.5, key="k_l30")
                 with g_c3:
                     deg_girdi = st.number_input(
-                        "REEL_DEGISIM_YUZDE (%)", value=round(deg_yuzde, 2), step=0.5, key="k_deg"
+                        "Son Gün Değişimi (%)", value=round(deg_yuzde, 2), step=0.5, key="k_deg"
                     )
                     oyn7_girdi = st.number_input(
-                        "REEL_OYNAKLIK_7", min_value=0.0, value=round(oyn_7, 2), step=0.2, key="k_o7"
+                        "7 Günlük Dalgalanma", min_value=0.0, value=round(oyn_7, 2), step=0.2, key="k_o7"
                     )
                     oyn30_girdi = st.number_input(
-                        "REEL_OYNAKLIK_30", min_value=0.0, value=round(oyn_30, 2), step=0.2, key="k_o30"
+                        "30 Günlük Dalgalanma", min_value=0.0, value=round(oyn_30, 2), step=0.2, key="k_o30"
                     )
 
             girdi_sozluk = {
@@ -1741,77 +1987,56 @@ with sekme_karar:
             }
             X_tahmin = pd.DataFrame([girdi_sozluk])[MODEL_SUTUNLARI_12]
 
-            # Tahmin Hesaplama: 03_Model/model.joblib varsa onunla, yoksa REEL_DEGISIM_YUZDE trendiyle
-            tahmin_kaynagi = "Yedek Trend Tahmincisi (`REEL_DEGISIM_YUZDE` + Lag Ağırlıklı)"
+            tahmin_kaynagi = "Geçmiş Trend & Oynaklık Yedek Motoru"
             tahmin_fiyat = None
 
             if MODEL_AKTIF and MODEL is not None:
                 try:
                     tahmin_fiyat = float(MODEL.predict(X_tahmin)[0])
-                    tahmin_kaynagi = "Makine Öğrenmesi Modeli (`03_Model/model.joblib`)"
+                    tahmin_kaynagi = "Eğitilmiş Makine Öğrenmesi Modeli (`03_Model/model.joblib`)"
                 except Exception as e:
                     tahmin_fiyat = None
-                    tahmin_kaynagi = f"Yedek Trend Tahmincisi (Model girdi uyarısı: {e})"
+                    tahmin_kaynagi = f"Yedek Trend Motoru (Model uyarısı: {e})"
 
             if tahmin_fiyat is None:
-                # REEL_DEGISIM_YUZDE trendini aşırı uçlardan korumak için [-15%, +15%] bandında sınırla
                 sinirli_trend = float(np.clip(deg_girdi, -15.0, 15.0)) / 100.0
                 trend_tahmini = reel_girdi * (1.0 + sinirli_trend * 0.65)
                 lag_ortalamasi = 0.50 * reel_girdi + 0.30 * lag1_girdi + 0.20 * lag7_girdi
                 tahmin_fiyat = round(0.60 * trend_tahmini + 0.40 * lag_ortalamasi, 2)
 
-            # Belirsizlik Aralığı (Alt - Üst Bant): REEL_OYNAKLIK_7 veya en az %6 bant
             belirsizlik_marji = max(float(oyn7_girdi), float(tahmin_fiyat) * 0.06)
             alt_bant = max(0.01, round(tahmin_fiyat - belirsizlik_marji, 2))
             ust_bant = round(tahmin_fiyat + belirsizlik_marji, 2)
 
             beklenen_degisim_yuzde = (
-                ((tahmin_fiyat - reel_girdi) / reel_girdi) * 100 if reel_girdi > 0 else 0.0
+                ((tahmin_fiyat - reel_girdi) / reel_girdi) * 100.0 if reel_girdi > 0 else 0.0
             )
 
-            # ŞİMDİ AL / BEKLE / NORMAL Kararı
             if beklenen_degisim_yuzde >= 3.0:
-                karar_etiketi = "🟢 ŞİMDİ AL (Stokla / Sözleşme Yap)"
+                karar_etiketi = "🟢 ŞİMDİ AL — Alımı Öne Çekin"
                 karar_aciklama = (
-                    f"Gelecek hafta reel fiyatın **+%{beklenen_degisim_yuzde:.1f}** artışla "
-                    f"**{tahmin_fiyat:.2f} TL** seviyesine çıkması bekleniyor. "
-                    f"Zamdan etkilenmemek için alımı öne çekin."
+                    f"Gelecek hafta fiyatın **+%{beklenen_degisim_yuzde:.1f}** yükselerek "
+                    f"**{tahmin_fiyat:.2f} TL/{birim_adi}** bandına çıkması bekleniyor. "
+                    f"Zam gelmeden bugün stok/sözleşme yapmak kârlı olacaktır."
                 )
                 karar_tipi = "success"
             elif beklenen_degisim_yuzde <= -3.0:
-                karar_etiketi = "🔴 BEKLE (Gelecek Hafta Ucuzlama Bekleniyor)"
+                karar_etiketi = "🔴 BEKLE — Gelecek Hafta Ucuzlayabilir"
                 karar_aciklama = (
-                    f"Gelecek hafta reel fiyatın **%{beklenen_degisim_yuzde:.1f}** düşüşle "
-                    f"**{tahmin_fiyat:.2f} TL** seviyesine gerilemesi öngörülüyor. "
-                    f"Stoklu alımı erteleyip sadece günlük acil ihtiyacı karşılayın."
+                    f"Gelecek hafta fiyatın **%{beklenen_degisim_yuzde:.1f}** gerileyerek "
+                    f"**{tahmin_fiyat:.2f} TL/{birim_adi}** civarına inmesi bekleniyor. "
+                    f"Büyük stok yerine sadece bu haftanın acil ihtiyacını alın."
                 )
                 karar_tipi = "error"
             else:
-                karar_etiketi = "🟡 NORMAL (Rutin Haftalık Sipariş)"
+                karar_etiketi = "🟡 NORMAL — Standart Haftalık Alıma Devam"
                 karar_aciklama = (
-                    f"Gelecek hafta reel fiyatın mevcut seviyeye yakın (**%{beklenen_degisim_yuzde:+.1f}** | "
-                    f"**{tahmin_fiyat:.2f} TL**) seyretmesi bekleniyor. Standart haftalık alım planına devam edin."
+                    f"Gelecek hafta fiyatın bugünkü seviyeye çok yakın (**%{beklenen_degisim_yuzde:+.1f}** | "
+                    f"**{tahmin_fiyat:.2f} TL/{birim_adi}**) kalması bekleniyor. Olağan haftalık siparişinizi verebilirsiniz."
                 )
                 karar_tipi = "info"
 
-            t_m1, t_m2, t_m3 = st.columns(3)
-            t_m1.metric(
-                "Güncel Reel Fiyat",
-                f"{reel_girdi:.2f} TL / {birim_adi}",
-                f"Son Kayıt ({mal_turu_adi})",
-            )
-            t_m2.metric(
-                "Gelecek Hafta Tahmini",
-                f"{tahmin_fiyat:.2f} TL / {birim_adi}",
-                f"{beklenen_degisim_yuzde:+.1f}% Beklenen Değişim",
-                delta_color="inverse",
-            )
-            t_m3.metric(
-                "Tahmin Belirsizlik Aralığı",
-                f"{alt_bant:.2f} – {ust_bant:.2f} TL",
-                f"±{belirsizlik_marji:.2f} TL Güven Bandı",
-            )
-
+            # Büyük ve net karar kutusu en üstte
             if karar_tipi == "success":
                 st.success(f"### {karar_etiketi}\n{karar_aciklama}")
             elif karar_tipi == "error":
@@ -1819,12 +2044,62 @@ with sekme_karar:
             else:
                 st.info(f"### {karar_etiketi}\n{karar_aciklama}")
 
+            def _mini_kart(baslik: str, deger: str, alt: str, vurgu_renk: str = "#1B7A43") -> str:
+                return f"""
+                <div class="signal-card" style="min-height:94px; padding:11px 12px; border-left:4px solid {vurgu_renk};">
+                    <div class="signal-card-title" style="font-size:0.78rem; margin-bottom:4px;">{baslik}</div>
+                    <div style="color:#1E293B; font-size:1.08rem; font-weight:800; line-height:1.2; margin-bottom:4px;">{deger}</div>
+                    <div class="signal-card-sub" style="font-size:0.75rem;">{alt}</div>
+                </div>
+                """
+
+            t_m1, t_m2, t_m3 = st.columns(3)
+            t_m1.markdown(
+                _mini_kart("Bugünkü Reel Fiyat", f"{reel_girdi:.2f} TL", f"Birim: {birim_adi}", "#64748B"),
+                unsafe_allow_html=True,
+            )
+            t_m2.markdown(
+                _mini_kart(
+                    "Gelecek Hafta Tahmini",
+                    f"{tahmin_fiyat:.2f} TL",
+                    f"{beklenen_degisim_yuzde:+.1f}% Değişim",
+                    "#DC2626" if beklenen_degisim_yuzde >= 3 else ("#1B7A43" if beklenen_degisim_yuzde <= -3 else "#F59E0B"),
+                ),
+                unsafe_allow_html=True,
+            )
+            t_m3.markdown(
+                _mini_kart("Olası Fiyat Aralığı", f"{alt_bant:.2f} – {ust_bant:.2f} TL", f"±{belirsizlik_marji:.2f} TL Belirsizlik", "#1B7A43"),
+                unsafe_allow_html=True,
+            )
+            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+
+            # Görsel Tahmin Aralığı Grafiği (Bugün vs. Gelecek Hafta Alt-Beklenen-Üst)
+            fig_tahmin = go.Figure()
+            fig_tahmin.add_trace(
+                go.Bar(
+                    x=["Bugünkü Reel Fiyat", "Gelecek Hafta (En Düşük)", "Gelecek Hafta (Beklenen)", "Gelecek Hafta (En Yüksek)"],
+                    y=[reel_girdi, alt_bant, tahmin_fiyat, ust_bant],
+                    marker_color=["#64748B", "#22C55E", "#1B7A43", "#F59E0B"],
+                    text=[f"{v:.2f} TL" for v in [reel_girdi, alt_bant, tahmin_fiyat, ust_bant]],
+                    textposition="outside",
+                )
+            )
+            fig_tahmin.update_layout(
+                height=250,
+                margin=dict(l=10, r=10, t=25, b=10),
+                yaxis_title=f"Reel Fiyat (TL / {birim_adi})",
+                yaxis=dict(range=[0, max(reel_girdi, ust_bant) * 1.24]),
+                plot_bgcolor="#FFFFFF",
+                paper_bgcolor="#FFFFFF",
+            )
+            st.plotly_chart(fig_tahmin, use_container_width=True)
+
             st.caption(
                 f"📌 **Tahmin Motoru:** {tahmin_kaynagi} | "
-                f"*Dikkat: Fiyat tahmini belirsizdir; karar verirken **{alt_bant:.2f} TL – {ust_bant:.2f} TL** tahmin aralığı dikkate alınmalıdır.*"
+                f"*Not: Fiyat tahmini kesin fiyat garantisi değildir; **{alt_bant:.2f} TL – {ust_bant:.2f} TL** aralığı içinde gerçekleşmesi beklenir.*"
             )
 
-            # Opsiyonel: 01_Veri/urun_kumeleri.csv varsa aynı kümedeki diğer ürünleri listele (yoksa sessizce atla)
+            # Opsiyonel: urun_kumeleri.csv varsa aynı kümedeki ürünleri listele
             df_kumeler = VERILER.get("urun_kumeleri", pd.DataFrame())
             if not df_kumeler.empty and {"MAL_ADI", "KUME_NO"}.issubset(df_kumeler.columns):
                 urun_kume_satir = df_kumeler[df_kumeler["MAL_ADI"] == secili_odak_urun]
@@ -1846,22 +2121,22 @@ with sekme_karar:
                         .tolist()
                     )
                     if ayni_kume_urunleri:
-                        st.markdown("#### 🔄 Aynı Mevsimsel Kümedeki Alternatif / İkame Ürünler")
+                        st.markdown("#### 🔄 Aynı Mevsimsel Gruptaki Alternatif Ürünler")
                         st.info(
-                            f"**{secili_odak_urun}** ürünü **{kume_adi}** içinde yer almaktadır. "
-                            f"Aynı kümedeki alternatif ürünler: **{', '.join(ayni_kume_urunleri)}**"
+                            f"**{secili_odak_urun}** ürünü **{kume_adi}** grubundadır. "
+                            f"Alternatif olarak değerlendirilebilecek benzer ürünler: **{', '.join(ayni_kume_urunleri)}**"
                         )
 
-            # Opsiyonel: 01_Veri/model_karsilastirma.csv ve 01_Veri/ozellik_onemi.csv varsa otomatik göster
+            # Opsiyonel: model_karsilastirma.csv ve ozellik_onemi.csv
             df_model_kars = VERILER.get("model_karsilastirma", pd.DataFrame())
             df_ozellik_onemi = VERILER.get("ozellik_onemi", pd.DataFrame())
 
             if not df_model_kars.empty:
-                st.markdown("#### 📊 Model Performans Karşılaştırma Tablosu (`model_karsilastirma.csv`)")
+                st.markdown("#### 📊 Model Başarı Karşılaştırması (`model_karsilastirma.csv`)")
                 st.dataframe(df_model_kars, use_container_width=True, hide_index=True)
 
             if not df_ozellik_onemi.empty and len(df_ozellik_onemi.columns) >= 2:
-                st.markdown("#### 🧬 Model Özellik Önemi (`ozellik_onemi.csv`)")
+                st.markdown("#### 🧬 Tahmini En Çok Etkileyen Faktörler (`ozellik_onemi.csv`)")
                 oz_df = df_ozellik_onemi.copy()
                 ad_kol = "DEGISKEN" if "DEGISKEN" in oz_df.columns else oz_df.columns[0]
                 skor_kol = "ONEM_SKORU" if "ONEM_SKORU" in oz_df.columns else oz_df.columns[1]
@@ -1879,10 +2154,10 @@ with sekme_karar:
                         )
                     )
                     fig_oz.update_layout(
-                        height=300,
+                        height=280,
                         margin=dict(l=10, r=30, t=15, b=10),
-                        xaxis_title="Önem Skoru",
-                        yaxis_title="Değişken",
+                        xaxis_title="Etki Skoru",
+                        yaxis_title="Özellik",
                         plot_bgcolor="#FFFFFF",
                         paper_bgcolor="#FFFFFF",
                     )
@@ -1891,13 +2166,13 @@ with sekme_karar:
             st.warning("Seçili ürün için tahmin üretilecek kayıt bulunamadı.")
 
     # -------------------------------------------------------------------------
-    # 3. SAĞ SÜTUN: TEDARİKÇİ TEKLİF KONTROLÜ (ASGARI - ORTALAMA - AZAMI)
+    # 3. ADIM (SAĞ): TEDARİKÇİ TEKLİF KONTROLÜ (DİNAMİK ŞUBE SAYILI)
     # -------------------------------------------------------------------------
     with karar_sag:
-        st.markdown(f"#### 🧾 Tedarikçi Teklif Kontrolü ({secili_odak_urun})")
+        st.markdown(f"#### 3️⃣ Tedarikçi Teklifi Uygun mu? ({secili_odak_urun})")
         st.caption(
-            "Tedarikçinin restoran zincirine sunduğu birim fiyat teklifini (TL/kg veya adet) girin; "
-            "haldeki son **`ASGARI_UCRET` (Min)**, **`ORTALAMA_UCRET`** ve **`AZAMI_UCRET` (Max)** bandıyla denetleyin."
+            "Tedarikçinin size verdiği fiyatı ve şube başına sipariş miktarını girin. "
+            "Sistem, haldeki en düşük–ortalama–en yüksek fiyatlarla kıyaslayıp **kabul / pazarlık / ret** önerisi verir."
         )
 
         if not df_urun_karar.empty:
@@ -1908,75 +2183,109 @@ with sekme_karar:
                 else df_urun_karar.iloc[-1]
             )
             birim_etiket = str(son_fiyat_satiri.get("BIRIM", "KG"))
-            son_ort = float(son_fiyat_satiri.get("ORTALAMA_UCRET", 25.0))
+            son_ort = _guvenli_sayi(son_fiyat_satiri.get("ORTALAMA_UCRET", 25.0), 25.0)
             son_asg = (
-                float(son_fiyat_satiri["ASGARI_UCRET"])
+                _guvenli_sayi(son_fiyat_satiri["ASGARI_UCRET"], round(son_ort * 0.80, 2))
                 if "ASGARI_UCRET" in son_fiyat_satiri and pd.notna(son_fiyat_satiri["ASGARI_UCRET"])
                 else round(son_ort * 0.80, 2)
             )
             son_azm = (
-                float(son_fiyat_satiri["AZAMI_UCRET"])
+                _guvenli_sayi(son_fiyat_satiri["AZAMI_UCRET"], round(son_ort * 1.25, 2))
                 if "AZAMI_UCRET" in son_fiyat_satiri and pd.notna(son_fiyat_satiri["AZAMI_UCRET"])
                 else round(son_ort * 1.25, 2)
             )
 
             b_c1, b_c2, b_c3 = st.columns(3)
-            b_c1.metric("Hal Taban (Asgari)", f"{son_asg:.2f} TL", f"Min / {birim_etiket}")
-            b_c2.metric("Hal Ortalama", f"{son_ort:.2f} TL", f"Ort. / {birim_etiket}")
-            b_c3.metric("Hal Tavan (Azami)", f"{son_azm:.2f} TL", f"Max / {birim_etiket}")
-
-            teklif_fiyat = st.number_input(
-                f"💬 Tedarikçinin Verdiği Birim Fiyat Teklifi (TL / {birim_etiket}):",
-                min_value=0.01,
-                value=round(son_ort * 1.05, 2),
-                step=0.50,
-                key="tedarikci_teklif_girdi",
+            b_c1.markdown(
+                f"""
+                <div class="signal-card" style="min-height:92px; padding:11px 12px; border-left:4px solid #1B7A43;">
+                    <div class="signal-card-title" style="font-size:0.78rem; margin-bottom:4px;">Hal En Düşük</div>
+                    <div style="color:#1E293B; font-size:1.08rem; font-weight:800; line-height:1.2; margin-bottom:4px;">{son_asg:.2f} TL</div>
+                    <div class="signal-card-sub" style="font-size:0.75rem;">Asgari / {birim_etiket}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-            siparis_miktari = st.number_input(
-                f"📦 Planlanan Sipariş Miktarı ({birim_etiket} - 12 Şube Toplam):",
-                min_value=1.0,
-                value=500.0,
-                step=50.0,
-                key="tedarikci_miktar_girdi",
+            b_c2.markdown(
+                f"""
+                <div class="signal-card" style="min-height:92px; padding:11px 12px; border-left:4px solid #3B82F6;">
+                    <div class="signal-card-title" style="font-size:0.78rem; margin-bottom:4px;">Hal Ortalama</div>
+                    <div style="color:#1E293B; font-size:1.08rem; font-weight:800; line-height:1.2; margin-bottom:4px;">{son_ort:.2f} TL</div>
+                    <div class="signal-card-sub" style="font-size:0.75rem;">Piyasa / {birim_etiket}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            b_c3.markdown(
+                f"""
+                <div class="signal-card" style="min-height:92px; padding:11px 12px; border-left:4px solid #F59E0B;">
+                    <div class="signal-card-title" style="font-size:0.78rem; margin-bottom:4px;">Hal En Yüksek</div>
+                    <div style="color:#1E293B; font-size:1.08rem; font-weight:800; line-height:1.2; margin-bottom:4px;">{son_azm:.2f} TL</div>
+                    <div class="signal-card-sub" style="font-size:0.75rem;">Azami / {birim_etiket}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+
+            tk_c1, tk_c2 = st.columns(2)
+            with tk_c1:
+                teklif_fiyat = st.number_input(
+                    f"💬 Tedarikçi Teklifi (TL / {birim_etiket}):",
+                    min_value=0.01,
+                    value=round(son_ort * 1.05, 2),
+                    step=0.50,
+                    key="tedarikci_teklif_girdi",
+                )
+            with tk_c2:
+                sube_basi_miktar = st.number_input(
+                    f"📦 Şube Başı Sipariş ({birim_etiket}):",
+                    min_value=1.0,
+                    value=50.0,
+                    step=5.0,
+                    key="tedarikci_sube_miktar",
+                    help=f"Sol menüde seçili {aktif_sube_sayisi} şube ile otomatik çarpılır.",
+                )
+
+            toplam_siparis_miktari = sube_basi_miktar * float(aktif_sube_sayisi)
+            st.caption(
+                f"🧮 **Toplam Sipariş Hacmi:** `{sube_basi_miktar:,.0f} {birim_etiket}/şube` × **`{aktif_sube_sayisi} Şube`** "
+                f"= **`{toplam_siparis_miktari:,.0f} {birim_etiket}`** *(Şube sayısını sol menüden değiştirebilirsiniz)*"
             )
 
-            # Karşılaştırma ve Uyarı Mantığı
             if teklif_fiyat <= son_ort:
                 avantaj_birim = son_ort - teklif_fiyat
-                toplam_avantaj = avantaj_birim * siparis_miktari
+                sube_avantaj = avantaj_birim * sube_basi_miktar
+                toplam_avantaj = avantaj_birim * toplam_siparis_miktari
                 st.success(
-                    f"🟢 **İYİ TEKLİF (Onaylanabilir)**\n\n"
-                    f"Tedarikçi teklifi (`{teklif_fiyat:.2f} TL`), hal ortalama fiyatının (`{son_ort:.2f} TL`) "
-                    f"**`{avantaj_birim:.2f} TL`** altında. "
-                    f"`{siparis_miktari:,.0f} {birim_etiket}` alımda piyasa ortalamasına göre **`{toplam_avantaj:,.2f} TL`** avantaj sağlıyor."
+                    f"🟢 **İYİ TEKLİF — ONAYLANABİLİR**\n\n"
+                    f"• Teklif (`{teklif_fiyat:.2f} TL`), hal ortalamasının (`{son_ort:.2f} TL`) **`{avantaj_birim:.2f} TL`** altında.\n"
+                    f"• **Şube Başı Kazanç:** `{sube_avantaj:,.2f} TL` | **{aktif_sube_sayisi} Şube Toplam Kazanç:** **`{toplam_avantaj:,.2f} TL`**"
                 )
             elif teklif_fiyat <= son_azm:
                 pazarlik_birim = teklif_fiyat - son_ort
-                pazarlik_toplam = pazarlik_birim * siparis_miktari
+                sube_pazarlik = pazarlik_birim * sube_basi_miktar
+                pazarlik_toplam = pazarlik_birim * toplam_siparis_miktari
                 st.warning(
-                    f"🟡 **PAZARLIK PAYI VAR (İndirim İstenmeli)**\n\n"
-                    f"Teklif (`{teklif_fiyat:.2f} TL`) hal tavanını (`{son_azm:.2f} TL`) aşmıyor ancak "
-                    f"hal ortalamasının (`{son_ort:.2f} TL`) üzerinde.\n\n"
-                    f"👉 **Pazarlık Hedefi:** Birim fiyatta en az **`{pazarlik_birim:.2f} TL/{birim_etiket}`** "
-                    f"(toplam siparişte **`{pazarlik_toplam:,.2f} TL`**) indirim talep edilerek fiyat `{son_ort:.2f} TL` seviyesine çekilmeli."
+                    f"🟡 **PAZARLIK PAYI VAR — İNDİRİM İSTEYİN**\n\n"
+                    f"• Teklif (`{teklif_fiyat:.2f} TL`) hal tavanını aşmıyor ancak ortalamanın (`{son_ort:.2f} TL`) üzerinde.\n"
+                    f"• **Hedef İndirim:** Birimde **`{pazarlik_birim:.2f} TL/{birim_etiket}`** düşürülerek `{son_ort:.2f} TL` hedeflenmeli.\n"
+                    f"• **Kurtarılacak Tutar:** Şube başı `{sube_pazarlik:,.2f} TL` | **{aktif_sube_sayisi} Şube Toplam:** **`{pazarlik_toplam:,.2f} TL`**"
                 )
             else:
                 asiri_fark_tavan = teklif_fiyat - son_azm
                 asiri_fark_ort = teklif_fiyat - son_ort
-                toplam_zarar = asiri_fark_ort * siparis_miktari
+                toplam_zarar = asiri_fark_ort * toplam_siparis_miktari
                 st.error(
-                    f"🔴 **HAL TAVANININ ÜSTÜNDE — REDDET!**\n\n"
-                    f"Tedarikçi teklifi (`{teklif_fiyat:.2f} TL`), haldeki en yüksek kalite tavan fiyatı olan "
-                    f"`AZAMI_UCRET` (`{son_azm:.2f} TL`) sınırını dahi **`{asiri_fark_tavan:.2f} TL`** aşmaktadır!\n\n"
-                    f"👉 **Karar:** Teklifi reddedin veya hal ortalamasına çekmek için birim başına "
-                    f"**`{asiri_fark_ort:.2f} TL`** (toplamda **`{toplam_zarar:,.2f} TL`**) indirim şartı koşun."
+                    f"🔴 **HAL TAVANININ ÜSTÜNDE — TEKLİFİ REDDEDİN!**\n\n"
+                    f"• Teklif (`{teklif_fiyat:.2f} TL`), haldeki en yüksek kalite tavan fiyatını (`{son_azm:.2f} TL`) bile **`{asiri_fark_tavan:.2f} TL`** aşıyor!\n"
+                    f"• Bu fiyattan alınırsa **{aktif_sube_sayisi} şube için** hal ortalamasına kıyasla **`{toplam_zarar:,.2f} TL`** fazla ödeme yapılmış olur."
                 )
 
-            # Görsel Bant Grafiği (Asgari - Ortalama - Azami vs. Teklif)
             fig_teklif = go.Figure()
             fig_teklif.add_trace(
                 go.Bar(
-                    x=["Asgari (Min)", "Ortalama", "Azami (Max)", "Tedarikçi Teklifi"],
+                    x=["Hal En Düşük", "Hal Ortalama", "Hal En Yüksek", "Tedarikçi Teklifi"],
                     y=[son_asg, son_ort, son_azm, teklif_fiyat],
                     marker_color=[
                         "#1B7A43",
@@ -1989,10 +2298,10 @@ with sekme_karar:
                 )
             )
             fig_teklif.update_layout(
-                height=260,
+                height=250,
                 margin=dict(l=10, r=10, t=25, b=10),
                 yaxis_title=f"Birim Fiyat (TL / {birim_etiket})",
-                yaxis=dict(range=[0, max(son_azm, teklif_fiyat) * 1.22]),
+                yaxis=dict(range=[0, max(son_azm, teklif_fiyat) * 1.24]),
                 plot_bgcolor="#FFFFFF",
                 paper_bgcolor="#FFFFFF",
             )
@@ -2088,11 +2397,35 @@ def _tasarimli_excel_olustur(
     zebra_koyu = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
     veri_font = Font(name="Calibri", size=10, color="1E293B")
 
+    # Trafik Işığı Renk Kodları (İyi = Yeşil, Tehlikeli/Orta = Sarı, Kötü/Riskli = Kırmızı)
+    yesil_dolgu = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
+    yesil_font = Font(name="Calibri", size=10, bold=True, color="166534")
+    sari_dolgu = PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid")
+    sari_font = Font(name="Calibri", size=10, bold=True, color="854D0E")
+    kirmizi_dolgu = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
+    kirmizi_font = Font(name="Calibri", size=10, bold=True, color="991B1B")
+
+    stok_esik_yuzde = float(fire_orani + depo_orani)
+
     baslangic_satir = 5
     for idx, r in sim_df.reset_index(drop=True).iterrows():
         satir_no = baslangic_satir + idx
-        ws.row_dimensions[satir_no].height = 21
+        ws.row_dimensions[satir_no].height = 22
         dolgu = zebra_acik if idx % 2 == 0 else zebra_koyu
+
+        avantaj_pct = float(r["MEVSIMSEL_AVANTAJ_YUZDE"])
+        net_marj_pct = avantaj_pct - stok_esik_yuzde
+
+        # Satırın durum rengini belirle:
+        # Kötü (Kırmızı): Fire+Depo >= Mevsimsel Avantaj (Fiziksel stok zararlı!)
+        # Tehlikeli (Sarı): Net avantaj dar (%0 - %10 arası)
+        # İyi (Yeşil): Net avantaj güçlü (>= %10)
+        if net_marj_pct <= 0:
+            durum_dolgu, durum_font = kirmizi_dolgu, kirmizi_font
+        elif net_marj_pct < 10.0:
+            durum_dolgu, durum_font = sari_dolgu, sari_font
+        else:
+            durum_dolgu, durum_font = yesil_dolgu, yesil_font
 
         satir_degerleri = [
             str(r["MAL_ADI"]),
@@ -2101,7 +2434,7 @@ def _tasarimli_excel_olustur(
             float(r["SUBE_AYLIK_KG"]),
             float(r["YILLIK_TOPLAM_KG"]),
             float(r["GUNCEL_BIRIM_FIYAT"]),
-            float(r["MEVSIMSEL_AVANTAJ_YUZDE"]) / 100.0,
+            avantaj_pct / 100.0,
             float(r["YILLIK_SPOT_MALIYET"]),
             float(r["YILLIK_AKILLI_MALIYET"]),
             float(r["YILLIK_NET_TASARRUF"]),
@@ -2110,8 +2443,13 @@ def _tasarimli_excel_olustur(
 
         for col_idx, val in enumerate(satir_degerleri, start=1):
             hc = ws.cell(row=satir_no, column=col_idx, value=val)
-            hc.fill = dolgu
-            hc.font = veri_font
+            # 7 (Mevsimsel Avantaj %), 10 (Yıllık Net Tasarruf) ve 11 (Strateji Önerisi) kutularını durum rengiyle boya
+            if col_idx in [7, 10, 11]:
+                hc.fill = durum_dolgu
+                hc.font = durum_font
+            else:
+                hc.fill = dolgu
+                hc.font = veri_font
             hc.border = hucre_cerceve
 
             if col_idx in [1, 11]:
@@ -2194,9 +2532,16 @@ def _tasarimli_excel_olustur(
 
 with sekme_simulator:
     st.subheader("🏪 Çok Şubeli Restoran Zinciri Yıllık Satın Alma & Tasarruf Simülatörü")
-    st.caption(
-        "Şube sayısı, şube başı aylık ürün tüketimi (kg), beklenen fire ve depolama maliyetine göre "
-        "bugünün TL'siyle **Yıllık Spot Maliyet vs. Akıllı Alım (Stoklama / Sabit Fiyat Sözleşmesi) Maliyetini** simüle eder."
+    st.markdown(
+        """
+        <div class="guide-box">
+            <b>💡 Bu Ekran Ne İşe Yarar?</b>
+            Restoran zincirinizin <b>her ay normal piyasa fiyatından (Spot)</b> alım yapması ile
+            <b>ürünleri en ucuz ayında stoklayarak veya sabit fiyatlı sözleşmeyle (Akıllı Alım)</b> temin etmesi arasındaki
+            <b>yıllık net TL tasarrufunu</b> fire ve soğuk hava depo maliyetlerini düşerek hesaplar.
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
     # -------------------------------------------------------------------------
@@ -2208,9 +2553,9 @@ with sekme_simulator:
             "🏪 Zincirdeki Şube Sayısı",
             min_value=1,
             max_value=50,
-            value=12,
+            value=min(int(aktif_sube_sayisi), 50),
             step=1,
-            help="Senaryo varsayılanı: Ege Bölgesi'ndeki 12 şubeli restoran zinciri.",
+            help="Sol menüdeki aktif şube sayınızla otomatik senkronize gelir; farklı senaryolar için buradan da kaydırabilirsiniz.",
         )
     with param_col2:
         fire_orani = st.slider(
