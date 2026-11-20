@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from io import BytesIO
+import os
 from pathlib import Path
 import joblib
 import numpy as np
@@ -326,11 +327,12 @@ def verileri_yukle() -> dict:
         "urun_kumeleri": ("01_Veri/urun_kumeleri.csv", None),
         "model_karsilastirma": ("01_Veri/model_karsilastirma.csv", None),
         "ozellik_onemi": ("01_Veri/ozellik_onemi.csv", None),
+        "gelecek_hafta_ve_ay_tahminleri": ("01_Veri/gelecek_hafta_ve_ay_tahminleri.csv", None),
     }
 
     for anahtar, (goreceli_yol, tarih_sutunlari) in dosya_listesi.items():
         yol = _dosya_yolu_coz(goreceli_yol)
-        if yol.exists():
+        if os.path.exists(yol):
             try:
                 if tarih_sutunlari:
                     df = pd.read_csv(yol, parse_dates=tarih_sutunlari, low_memory=False)
@@ -373,6 +375,17 @@ def verileri_yukle() -> dict:
                         "AYLIK_ORT_FIYAT",
                         "MEVSIMLIK_ORT_FIYAT",
                         "GENEL_ORT_FIYAT",
+                        "BUGUNKU_REEL_FIYAT",
+                        "TAHMIN_1_HAFTA",
+                        "ARALIK_1_HAFTA_ALT",
+                        "ARALIK_1_HAFTA_UST",
+                        "DEGISIM_1_HAFTA_YUZDE",
+                        "TAHMIN_2_HAFTA",
+                        "TAHMIN_3_HAFTA",
+                        "TAHMIN_1_AY (30_KAYIT)",
+                        "ARALIK_1_AY_ALT",
+                        "ARALIK_1_AY_UST",
+                        "DEGISIM_1_AY_YUZDE",
                     ],
                 )
                 veri[anahtar] = df
@@ -791,7 +804,7 @@ def _kume_rozeti_ve_ikame_goster(urun_adi: str, df_kumeler: pd.DataFrame, df_oz:
 
 
 def _degisken_turkce_etiket(ham_ad: str) -> str:
-    """ozellik_onemi.csv içindeki teknik değişken adlarını kullanıcı dostu Türkçeye çevirir."""
+    """ozellik_onemi.csv içindeki teknik değişken adlarını kullanıcı dostu Türkçeye çevirir; zaten Türkçe ise korur."""
     harita = {
         "REEL_ORTALAMA_UCRET": "Güncel Reel Fiyat",
         "REEL_LAG_1": "1 Gün Önceki Reel Fiyat",
@@ -817,23 +830,39 @@ def _degisken_turkce_etiket(ham_ad: str) -> str:
         if temiz.startswith(k + "_"):
             ek = temiz[len(k) + 1 :]
             return f"{v}: {ek}"
+    # Zaten temiz Türkçe isimse (alt tire yoksa) olduğu gibi döndür
+    if "_" not in temiz:
+        return temiz
     return temiz.replace("_", " ").title()
 
 
 @st.cache_resource(show_spinner=False)
 def modeli_yukle():
-    """03_Model/model.joblib varsa yükler; yoksa None ve durum mesajı döndürür."""
+    """03_Model/model.joblib (1 Haftalık) varsa yükler; yoksa None ve durum mesajı döndürür."""
     model_yolu = _dosya_yolu_coz("03_Model/model.joblib")
-    if model_yolu.exists():
+    if os.path.exists(model_yolu):
         try:
             model = joblib.load(model_yolu)
-            return model, True, "Aktif (03_Model/model.joblib yüklendi)"
+            return model, True, "Aktif (1 Haftalık Model Yüklendi)"
         except Exception as e:
             return None, False, f"Yedek Mod (Model yükleme hatası: {e})"
-    return None, False, "Yedek Mod (03_Model/model.joblib bekleniyor)"
+    return None, False, "Yedek Mod (Model bekleniyor)"
 
 
-# Verileri ve modeli yükle
+@st.cache_resource(show_spinner=False)
+def aylik_modeli_yukle():
+    """03_Model/model_aylik.joblib (1 Aylık / 30 Kayıt Sonrası) varsa yükler."""
+    model_yolu = _dosya_yolu_coz("03_Model/model_aylik.joblib")
+    if os.path.exists(model_yolu):
+        try:
+            model = joblib.load(model_yolu)
+            return model, True
+        except Exception:
+            return None, False
+    return None, False
+
+
+# Verileri ve modelleri yükle
 VERILER = verileri_yukle()
 df_ozellikli = VERILER["hal_reel_ozellikli"]
 df_aylik_reel = VERILER["ilk_25_aylik_reel_fiyat"]
@@ -843,8 +872,10 @@ df_gunluk_karar = VERILER["gunluk_satinalma_karar"]
 df_haftalik_karar = VERILER["haftalik_satinalma_karar"]
 df_aylik_karar = VERILER["aylik_satinalma_karar"]
 df_mevsimsel_karar = VERILER["mevsimsel_satinalma_karar"]
+df_gelecek_tahminler = VERILER["gelecek_hafta_ve_ay_tahminleri"]
 
 MODEL, MODEL_AKTIF, MODEL_DURUM_METNI = modeli_yukle()
+MODEL_AYLIK, MODEL_AYLIK_AKTIF = aylik_modeli_yukle()
 
 
 # -----------------------------------------------------------------------------
@@ -903,8 +934,10 @@ with st.sidebar:
 
     st.divider()
     st.markdown("### 🧠 Tahmin Motoru Durumu")
-    if MODEL_AKTIF:
-        st.success("🟢 **Makine Öğrenmesi Modeli Aktif**\n\nEğitilmiş tahmin modeli devrede.")
+    if MODEL_AKTIF and MODEL_AYLIK_AKTIF:
+        st.success("🟢 **1 Haftalık & 1 Aylık Yapay Zekâ Modelleri Aktif**\n\nHer iki tahmin motoru canlı devrede.")
+    elif MODEL_AKTIF:
+        st.success("🟢 **Makine Öğrenmesi Modeli Aktif**\n\n1 Haftalık tahmin modeli devrede.")
     else:
         st.warning(
             "🟡 **Yedek Tahmin Modu Aktif**\n\n"
@@ -1421,13 +1454,17 @@ with sekme_panel:
         )
 
     # -------------------------------------------------------------------------
-    # D) OPSİYONEL MODEL VE KÜME ÖZETİ (Suzan'ın CSV'leri Eklendiğinde Otomatik Görünür)
+    # D) OPSİYONEL MODEL VE KÜME ÖZETİ (Suzan'ın CSV ve Görselleri Eklendiğinde Otomatik Görünür)
     # -------------------------------------------------------------------------
     df_p_model = VERILER.get("model_karsilastirma", pd.DataFrame())
     df_p_onem = VERILER.get("ozellik_onemi", pd.DataFrame())
     df_p_kume = VERILER.get("urun_kumeleri", pd.DataFrame())
+    shap_gorsel_yolu = _dosya_yolu_coz("03_Model/shap_aciklanabilirlik.png")
+    kume_gorsel_yolu = _dosya_yolu_coz("03_Model/kumeleme_mevsimsel_profiller.png")
+    shap_var = os.path.exists(shap_gorsel_yolu)
+    kume_gorsel_var = os.path.exists(kume_gorsel_yolu)
 
-    if not df_p_model.empty or not df_p_onem.empty or not df_p_kume.empty:
+    if not df_p_model.empty or not df_p_onem.empty or not df_p_kume.empty or shap_var or kume_gorsel_var:
         st.divider()
         st.subheader("🧠 Makine Öğrenmesi Model Performansı & Ürün Kümeleri Özeti")
         p_c1, p_c2 = st.columns(2, gap="large")
@@ -1437,11 +1474,49 @@ with sekme_panel:
                 st.dataframe(df_p_model, use_container_width=True, hide_index=True)
             if not df_p_kume.empty:
                 st.markdown("**🧩 Mevsimsel Ürün Kümeleri**")
-                st.dataframe(df_p_kume, use_container_width=True, hide_index=True)
+                st.dataframe(
+                    df_p_kume.rename(
+                        columns={
+                            "MAL_ADI": "Ürün Adı",
+                            "KUME_NO": "Küme No",
+                            "KUME_ADI": "Mevsimsel Grup Özelliği",
+                        }
+                    ),
+                    use_container_width=True,
+                    hide_index=True,
+                )
         with p_c2:
             if not df_p_onem.empty and len(df_p_onem.columns) >= 2:
                 st.markdown("**🧬 Tahmini En Çok Etkileyen Faktörler**")
-                st.dataframe(df_p_onem, use_container_width=True, hide_index=True)
+                p_onem_goster = df_p_onem.copy()
+                if "DEGISKEN" in p_onem_goster.columns or "ONEM_SKORU" in p_onem_goster.columns:
+                    p_onem_goster = p_onem_goster.rename(
+                        columns={"DEGISKEN": "Etkileyen Faktör", "ONEM_SKORU": "Etki Skoru"}
+                    )
+                if "Etkileyen Faktör" in p_onem_goster.columns:
+                    p_onem_goster["Etkileyen Faktör"] = p_onem_goster["Etkileyen Faktör"].apply(_degisken_turkce_etiket)
+                st.dataframe(p_onem_goster, use_container_width=True, hide_index=True)
+
+        if shap_var or kume_gorsel_var:
+            with st.expander("🔬 Model Açıklanabilirliği (SHAP Analizi) & Mevsimsel Küme Profilleri", expanded=False):
+                if shap_var:
+                    st.markdown("##### 🔬 SHAP Model Açıklanabilirlik Analizi")
+                    st.image(str(shap_gorsel_yolu), use_container_width=True)
+                    st.markdown(
+                        '<div class="insight-note"><b>💬 SHAP İş Yorumu:</b> '
+                        "Bu grafik, yapay zekâ modelinin fiyat tahminini üretirken hangi değişkene (son hafta fiyatı, 30 günlük oynaklık, ay mevsimselliği vb.) "
+                        "ne yönde ağırlık verdiğini şeffaf biçimde gösterir. Böylece satın alma yöneticisi tahminin yalnızca sonucunu değil, dayanağını da denetleyebilir.</div>",
+                        unsafe_allow_html=True,
+                    )
+                if kume_gorsel_var:
+                    st.markdown("##### 🧩 K-Means Mevsimsel Küme Profilleri")
+                    st.image(str(kume_gorsel_yolu), use_container_width=True)
+                    st.markdown(
+                        '<div class="insight-note"><b>💬 Kümeleme İş Yorumu:</b> '
+                        "Ürünler 12 aylık reel fiyat hareketlerine göre K-Means algoritmasıyla 4 stratejik mevsim grubuna ayrılmıştır; "
+                        "aynı kümedeki ürünler menü planlamasında birbirine ikame edilebilir. Bu gruplama yıllık sözleşme ve stok takviminin omurgasını oluşturur.</div>",
+                        unsafe_allow_html=True,
+                    )
 
 
 # =============================================================================
@@ -2397,7 +2472,8 @@ with sekme_strateji:
             sabit_alim_ort = float(df_son_yil[fiyat_sutunu].mean())
             df_uygun_haftalar = df_son_yil[df_son_yil["UYGUN_MU"]]
 
-            if not df_uygun_haftalar.empty:                akilli_alim_ort = float(df_uygun_haftalar[fiyat_sutunu].mean())
+            if not df_uygun_haftalar.empty:
+                akilli_alim_ort = float(df_uygun_haftalar[fiyat_sutunu].mean())
                 uygun_hafta_sayisi = int(df_uygun_haftalar["HAFTA_DT"].nunique())
                 not_etiketi = f"Uygun Sinyal ({uygun_hafta_sayisi} Hafta)"
             else:
@@ -2658,14 +2734,35 @@ with sekme_karar:
             oyn_7 = _guvenli_float("REEL_OYNAKLIK_7", max(guncel_reel * 0.05, 1.0))
             oyn_30 = _guvenli_float("REEL_OYNAKLIK_30", max(guncel_reel * 0.08, 1.5))
 
+            # Hedef Alım Tarihi Seçimi (st.date_input) — seçilen tarihin AY ve HAFTA bilgisine göre canlı tahmin
+            varsayilan_hedef_tarih = (
+                son_tarih.date() if pd.notna(son_tarih) else date.today()
+            )
+            hedef_alim_tarihi = st.date_input(
+                "📅 Hedef Alım Tarihi Seçimi (Mevsimselliğe Duyarlı Canlı Tahmin):",
+                value=varsayilan_hedef_tarih,
+                key="karar_hedef_alim_tarihi",
+                help="İleri bir tarih seçtiğinizde o tarihin Ay ve Hafta bilgisi otomatik hesaplanır; 1 Haftalık ve 1 Aylık modeller seçilen dönemin mevsimselliğine göre canlı tahmin üretir.",
+            )
+            tarih_degisti_mi = hedef_alim_tarihi != varsayilan_hedef_tarih
+            secili_hedef_ay = int(hedef_alim_tarihi.month)
+            secili_hedef_hafta = int(hedef_alim_tarihi.isocalendar().week)
+
+            if tarih_degisti_mi:
+                st.caption(
+                    f"🎯 **Seçili Dönem:** {hedef_alim_tarihi.strftime('%d.%m.%Y')} "
+                    f"(**{AY_SIRASI.get(secili_hedef_ay, secili_hedef_ay)}** — Yılın **{secili_hedef_hafta}. Haftası**) "
+                    "için mevsimsellik girdi değerleri güncellendi."
+                )
+
             with st.expander("⚙️ İleri Düzey: Tahmin Parametrelerini (Senaryo Testi) Düzenle", expanded=False):
-                st.caption("Varsayılan değerler ürünün son hal kayıtlarından otomatik doldurulur. Farklı bir piyasa senaryosunu test etmek için değerleri değiştirebilirsiniz.")
+                st.caption("Varsayılan değerler ürünün son hal kayıtlarından ve seçilen hedef tarihten otomatik doldurulur.")
                 g_c1, g_c2, g_c3 = st.columns(3)
                 with g_c1:
-                    ay_girdi = st.number_input("Ay (1-12)", min_value=1, max_value=12, value=ay_degeri, key="k_ay")
-                    hafta_girdi = st.number_input("Yılın Haftası (1-53)", min_value=1, max_value=53, value=hafta_degeri, key="k_hafta")
+                    ay_girdi = st.number_input("Ay (1-12)", min_value=1, max_value=12, value=secili_hedef_ay, key=f"k_ay_{secili_hedef_ay}_{secili_hedef_hafta}")
+                    hafta_girdi = st.number_input("Yılın Haftası (1-53)", min_value=1, max_value=53, value=secili_hedef_hafta, key=f"k_hafta_{secili_hedef_ay}_{secili_hedef_hafta}")
                     reel_girdi = st.number_input(
-                        "Güncel Reel Fiyat (TL)", min_value=0.01, value=round(guncel_reel, 2), step=0.5, key="k_reel"
+                        "Güncel Reel Fiyat (₺)", min_value=0.01, value=round(guncel_reel, 2), step=0.5, key="k_reel"
                     )
                 with g_c2:
                     lag1_girdi = st.number_input("1 Gün Önceki Fiyat", min_value=0.01, value=round(lag_1, 2), step=0.5, key="k_l1")
@@ -2698,26 +2795,53 @@ with sekme_karar:
             }
             X_tahmin = pd.DataFrame([girdi_sozluk])[MODEL_SUTUNLARI_12]
 
+            # CSV'deki hazır 1 Haftalık & 1 Aylık tahmin satırını kontrol et (tarih değiştirilmediyse doğrudan referans alınabilir)
+            hazir_tahmin_satiri = None
+            if not df_gelecek_tahminler.empty and "MAL_ADI" in df_gelecek_tahminler.columns:
+                eslesen = df_gelecek_tahminler[df_gelecek_tahminler["MAL_ADI"] == secili_odak_urun]
+                if not eslesen.empty:
+                    hazir_tahmin_satiri = eslesen.iloc[-1]
+
             tahmin_kaynagi = "Geçmiş Trend & Oynaklık Yedek Motoru"
             tahmin_fiyat = None
+            alt_bant_hazir = None
+            ust_bant_hazir = None
 
             if MODEL_AKTIF and MODEL is not None:
                 try:
-                    tahmin_fiyat = float(MODEL.predict(X_tahmin)[0])
-                    tahmin_kaynagi = "Eğitilmiş Makine Öğrenmesi Modeli"
-                except Exception as e:
+                    tahmin_fiyat = round(float(MODEL.predict(X_tahmin)[0]), 2)
+                    tahmin_kaynagi = "Eğitilmiş 1 Haftalık Makine Öğrenmesi Modeli"
+                except Exception:
                     tahmin_fiyat = None
                     tahmin_kaynagi = "Geçmiş Trend & Oynaklık Yedek Motoru"
+
+            if (not tarih_degisti_mi) and hazir_tahmin_satiri is not None:
+                if tahmin_fiyat is None and pd.notna(hazir_tahmin_satiri.get("TAHMIN_1_HAFTA", np.nan)):
+                    tahmin_fiyat = round(float(hazir_tahmin_satiri["TAHMIN_1_HAFTA"]), 2)
+                    tahmin_kaynagi = "Eğitilmiş 1 Haftalık Model Çıktısı"
+                if pd.notna(hazir_tahmin_satiri.get("ARALIK_1_HAFTA_ALT", np.nan)) and pd.notna(hazir_tahmin_satiri.get("ARALIK_1_HAFTA_UST", np.nan)):
+                    alt_bant_hazir = round(float(hazir_tahmin_satiri["ARALIK_1_HAFTA_ALT"]), 2)
+                    ust_bant_hazir = round(float(hazir_tahmin_satiri["ARALIK_1_HAFTA_UST"]), 2)
 
             if tahmin_fiyat is None:
                 sinirli_trend = float(np.clip(deg_girdi, -15.0, 15.0)) / 100.0
                 trend_tahmini = reel_girdi * (1.0 + sinirli_trend * 0.65)
                 lag_ortalamasi = 0.50 * reel_girdi + 0.30 * lag1_girdi + 0.20 * lag7_girdi
-                tahmin_fiyat = round(0.60 * trend_tahmini + 0.40 * lag_ortalamasi, 2)
+                # Eğer ileri bir tarih seçildiyse o ayın mevsimsel çarpanını yedek tahmine de yansıt
+                mevsim_duzeltme = 1.0
+                if tarih_degisti_mi and not df_aylik_reel.empty:
+                    u_aylik = df_aylik_reel[df_aylik_reel["MAL_ADI"] == secili_odak_urun]
+                    if not u_aylik.empty:
+                        yil_o = float(u_aylik["AYLIK_REEL_ORT"].mean())
+                        hedef_a = u_aylik[u_aylik["AY"] == int(ay_girdi)]["AYLIK_REEL_ORT"]
+                        if yil_o > 0 and not hedef_a.empty:
+                            mevsim_duzeltme = float(hedef_a.mean()) / yil_o
+                tahmin_fiyat = round((0.60 * trend_tahmini + 0.40 * lag_ortalamasi) * mevsim_duzeltme, 2)
 
             belirsizlik_marji = max(float(oyn7_girdi), float(tahmin_fiyat) * 0.06)
-            alt_bant = max(0.01, round(tahmin_fiyat - belirsizlik_marji, 2))
-            ust_bant = round(tahmin_fiyat + belirsizlik_marji, 2)
+            alt_bant = alt_bant_hazir if alt_bant_hazir is not None else max(0.01, round(tahmin_fiyat - belirsizlik_marji, 2))
+            ust_bant = ust_bant_hazir if ust_bant_hazir is not None else round(tahmin_fiyat + belirsizlik_marji, 2)
+            belirsizlik_marji = round((ust_bant - alt_bant) / 2.0, 2)
 
             beklenen_degisim_yuzde = (
                 ((tahmin_fiyat - reel_girdi) / reel_girdi) * 100.0 if reel_girdi > 0 else 0.0
@@ -2961,6 +3085,216 @@ with sekme_karar:
             st.warning("Tedarikçi teklif kontrolü için ürün fiyat kaydı bulunamadı.")
 
     # -------------------------------------------------------------------------
+    # 3.5 ADIM: 📅 1 AYLIK (4 HAFTALIK) FİYAT PROJEKSİYONU VE STRATEJİK KARAR
+    # -------------------------------------------------------------------------
+    if not df_urun_karar.empty:
+        st.divider()
+        st.markdown(f"#### 📅 1 Aylık (4 Haftalık) Fiyat Projeksiyonu ve Stratejik Karar — {secili_odak_urun}")
+        st.caption(
+            "Bugünden itibaren 1., 2., 3. hafta ve 1 ay (30 kayıt) sonrası reel fiyat yörüngesini, "
+            "1 aylık belirsizlik bandını ve aylık stratejik satın alma kararını gösterir."
+        )
+
+        # 1 Aylık projeksiyon değerlerini belirle:
+        # 1) Eğer hedef tarih değiştirilmediyse ve gelecek_hafta_ve_ay_tahminleri.csv içinde hazır satır varsa onu kullan
+        # 2) Hedef tarih değiştirildiyse veya CSV yoksa model_aylik.joblib üzerinden 12 sütunla canlı tahmin al
+        # 3) Model de henüz yoksa mevcut istatistiksel mevsimsel/trend yedek motoru ile hatasız üret
+        bugun_p = float(reel_girdi)
+        t_1h = float(tahmin_fiyat)
+        t_2h = None
+        t_3h = None
+        t_1ay = None
+        ay_alt = None
+        ay_ust = None
+        ay_degisim_pct = None
+        ay_karar_ham = None
+        ay_motor_kaynak = "Geçmiş Mevsimsellik & Trend Yedek Motoru"
+
+        if (not tarih_degisti_mi) and hazir_tahmin_satiri is not None:
+            t_1ay_csv = hazir_tahmin_satiri.get("TAHMIN_1_AY (30_KAYIT)", np.nan)
+            if pd.notna(t_1ay_csv):
+                bugun_p = _guvenli_sayi(hazir_tahmin_satiri.get("BUGUNKU_REEL_FIYAT", bugun_p), bugun_p)
+                t_1h = _guvenli_sayi(hazir_tahmin_satiri.get("TAHMIN_1_HAFTA", t_1h), t_1h)
+                t_2h = _guvenli_sayi(hazir_tahmin_satiri.get("TAHMIN_2_HAFTA", np.nan), np.nan)
+                t_3h = _guvenli_sayi(hazir_tahmin_satiri.get("TAHMIN_3_HAFTA", np.nan), np.nan)
+                t_1ay = round(float(t_1ay_csv), 2)
+                ay_alt = _guvenli_sayi(hazir_tahmin_satiri.get("ARALIK_1_AY_ALT", np.nan), np.nan)
+                ay_ust = _guvenli_sayi(hazir_tahmin_satiri.get("ARALIK_1_AY_UST", np.nan), np.nan)
+                ay_degisim_pct = _guvenli_sayi(hazir_tahmin_satiri.get("DEGISIM_1_AY_YUZDE", np.nan), np.nan)
+                ay_karar_ham = (
+                    str(hazir_tahmin_satiri["KARAR_1_AY"]).strip()
+                    if "KARAR_1_AY" in hazir_tahmin_satiri and pd.notna(hazir_tahmin_satiri["KARAR_1_AY"])
+                    else None
+                )
+                ay_motor_kaynak = "Eğitilmiş 1 Aylık Makine Öğrenmesi Modeli"
+
+        if t_1ay is None and MODEL_AYLIK_AKTIF and MODEL_AYLIK is not None:
+            try:
+                t_1ay = round(float(MODEL_AYLIK.predict(X_tahmin)[0]), 2)
+                ay_motor_kaynak = "Eğitilmiş 1 Aylık Makine Öğrenmesi Modeli (Canlı Tarih Tahmini)"
+            except Exception:
+                t_1ay = None
+
+        if t_1ay is None:
+            # Yedek 1 aylık projeksiyon: seçili ay -> sonraki ay mevsimsel geçiş oranı * bugünkü fiyat
+            sonraki_ay_no = 1 if int(ay_girdi) == 12 else int(ay_girdi) + 1
+            mev_oran = 1.0
+            if not df_aylik_reel.empty:
+                u_ay_df = df_aylik_reel[df_aylik_reel["MAL_ADI"] == secili_odak_urun]
+                if not u_ay_df.empty:
+                    bu_a = u_ay_df[u_ay_df["AY"] == int(ay_girdi)]["AYLIK_REEL_ORT"]
+                    sn_a = u_ay_df[u_ay_df["AY"] == sonraki_ay_no]["AYLIK_REEL_ORT"]
+                    if not bu_a.empty and not sn_a.empty and float(bu_a.mean()) > 0:
+                        mev_oran = float(sn_a.mean()) / float(bu_a.mean())
+            t_1ay = round(max(0.01, bugun_p * mev_oran), 2)
+
+        # Ara haftalar (2. Hafta ve 3. Hafta) eksikse yumuşak doğrusal ara değerle tamamla
+        if t_2h is None or pd.isna(t_2h):
+            t_2h = round(t_1h + (t_1ay - t_1h) * 0.35, 2)
+        if t_3h is None or pd.isna(t_3h):
+            t_3h = round(t_1h + (t_1ay - t_1h) * 0.70, 2)
+
+        ay_belirsizlik = max(float(oyn30_girdi), abs(t_1ay) * 0.10)
+        if ay_alt is None or pd.isna(ay_alt):
+            ay_alt = max(0.01, round(t_1ay - ay_belirsizlik, 2))
+        if ay_ust is None or pd.isna(ay_ust):
+            ay_ust = round(t_1ay + ay_belirsizlik, 2)
+
+        if ay_degisim_pct is None or pd.isna(ay_degisim_pct):
+            ay_degisim_pct = round(((t_1ay - bugun_p) / bugun_p) * 100.0, 1) if bugun_p > 0 else 0.0
+
+        # Aylık Stratejik Karar Rozeti (ŞİMDİ AL / BEKLE / NORMAL TEDARİK)
+        karar_ust_metin = str(ay_karar_ham).upper() if ay_karar_ham else ""
+        if ("AL" in karar_ust_metin and "NORMAL" not in karar_ust_metin) or (not karar_ust_metin and ay_degisim_pct >= 5.0):
+            ay_rozet_baslik = "🟢 ŞİMDİ AL — Aylık Stok / Sözleşme Önerisi"
+            ay_rozet_renk, ay_rozet_bg, ay_rozet_border = "#15803D", "#DCFCE7", "#16A34A"
+            ay_rozet_not = (
+                f"1 ay içinde reel fiyatın <b>+%{ay_degisim_pct:.1f}</b> artarak <b>{t_1ay:.2f} ₺</b> "
+                f"(bandı: {ay_alt:.2f}–{ay_ust:.2f} ₺) düzeyine çıkması bekleniyor. Aylık ihtiyacı şimdiden kilitlemek kârlıdır."
+            )
+        elif "BEKLE" in karar_ust_metin or (not karar_ust_metin and ay_degisim_pct <= -5.0):
+            ay_rozet_baslik = "🔴 BEKLE — Aylık Dönemde Ucuzlama Bekleniyor"
+            ay_rozet_renk, ay_rozet_bg, ay_rozet_border = "#B91C1C", "#FEE2E2", "#DC2626"
+            ay_rozet_not = (
+                f"1 ay içinde reel fiyatın <b>%{ay_degisim_pct:.1f}</b> düşerek <b>{t_1ay:.2f} ₺</b> "
+                f"(bandı: {ay_alt:.2f}–{ay_ust:.2f} ₺) düzeyine inmesi öngörülüyor. Uzun süreli stok yerine kademeli/beklemeli alım yapın."
+            )
+        else:
+            ay_rozet_baslik = "🟡 NORMAL TEDARİK — Dengeli Aylık Seyir"
+            ay_rozet_renk, ay_rozet_bg, ay_rozet_border = "#A16207", "#FEF9C3", "#CA8A04"
+            ay_rozet_not = (
+                f"1 aylık projeksiyonda fiyatın <b>{t_1ay:.2f} ₺</b> ({ay_degisim_pct:+.1f}% | bandı: {ay_alt:.2f}–{ay_ust:.2f} ₺) "
+                "civarında dengeli seyretmesi bekleniyor. Planlı haftalık tedarik akışına devam edilebilir."
+            )
+
+        ay_sol, ay_sag = st.columns([1.3, 0.9], gap="large")
+        with ay_sol:
+            noktalar_x = ["Bugün", "1. Hafta", "2. Hafta", "3. Hafta", "1 Ay Sonra"]
+            noktalar_y = [bugun_p, t_1h, t_2h, t_3h, t_1ay]
+            # Bugünden 1 ay sonraya açılan güven/belirsizlik bandı
+            bant_ust_y = [
+                bugun_p,
+                max(ust_bant, t_1h),
+                round(t_2h + (ay_ust - t_1ay) * 0.60, 2),
+                round(t_3h + (ay_ust - t_1ay) * 0.82, 2),
+                ay_ust,
+            ]
+            bant_alt_y = [
+                bugun_p,
+                min(alt_bant, t_1h),
+                max(0.01, round(t_2h - (t_1ay - ay_alt) * 0.60, 2)),
+                max(0.01, round(t_3h - (t_1ay - ay_alt) * 0.82, 2)),
+                ay_alt,
+            ]
+
+            fig_aylik = go.Figure()
+            fig_aylik.add_trace(
+                go.Scatter(
+                    x=noktalar_x,
+                    y=bant_ust_y,
+                    mode="lines",
+                    line=dict(width=0),
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+            fig_aylik.add_trace(
+                go.Scatter(
+                    x=noktalar_x,
+                    y=bant_alt_y,
+                    mode="lines",
+                    line=dict(width=0),
+                    fill="tonexty",
+                    fillcolor="rgba(27, 122, 67, 0.16)",
+                    name="1 Aylık Belirsizlik Bandı (Alt–Üst)",
+                )
+            )
+            fig_aylik.add_trace(
+                go.Scatter(
+                    x=noktalar_x,
+                    y=noktalar_y,
+                    mode="lines+markers+text",
+                    line=dict(color="#1B7A43", width=3),
+                    marker=dict(size=10, color="#14532D", line=dict(width=2, color="#FFFFFF")),
+                    text=[f"{v:.2f} ₺" for v in noktalar_y],
+                    textposition="top center",
+                    name="Beklenen Reel Fiyat Eğrisi",
+                )
+            )
+            y_ust_sinir = max(bant_ust_y) * 1.18 if max(bant_ust_y) > 0 else 10.0
+            y_alt_sinir = max(0.0, min(bant_alt_y) * 0.85)
+            fig_aylik.update_layout(
+                height=310,
+                margin=dict(l=15, r=15, t=25, b=10),
+                xaxis_title="Zaman Ufku",
+                yaxis_title=f"TÜFE Bazlı Reel Fiyat (₺ / {birim_adi})",
+                yaxis=dict(range=[y_alt_sinir, y_ust_sinir]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+                plot_bgcolor="#FFFFFF",
+                paper_bgcolor="#FFFFFF",
+                hovermode="x unified",
+            )
+            st.plotly_chart(fig_aylik, use_container_width=True)
+
+        with ay_sag:
+            st.markdown(
+                f"""
+                <div class="signal-card" style="border-top:5px solid {ay_rozet_border}; background:{ay_rozet_bg}; padding:16px 18px; margin-bottom:12px;">
+                    <div style="font-size:0.78rem; font-weight:700; color:{ay_rozet_renk}; margin-bottom:4px;">AYLIK STRATEJİK KARAR ROZETİ</div>
+                    <div style="font-size:1.10rem; font-weight:800; color:{ay_rozet_renk}; margin-bottom:8px;">{ay_rozet_baslik}</div>
+                    <div style="font-size:0.86rem; color:#1E293B; line-height:1.45;">{ay_rozet_not}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            ak1, ak2 = st.columns(2)
+            ak1.markdown(
+                f"""
+                <div class="signal-card" style="min-height:88px; padding:11px 12px; border-left:4px solid #1B7A43;">
+                    <div class="signal-card-title" style="font-size:0.77rem;">1 Ay Sonra Tahmin</div>
+                    <div style="color:#1E293B; font-size:1.08rem; font-weight:800;">{t_1ay:.2f} ₺</div>
+                    <div class="signal-card-sub" style="font-size:0.75rem;">{ay_degisim_pct:+.1f}% Aylık Değişim</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            ak2.markdown(
+                f"""
+                <div class="signal-card" style="min-height:88px; padding:11px 12px; border-left:4px solid #3B82F6;">
+                    <div class="signal-card-title" style="font-size:0.77rem;">1 Aylık Güven Bandı</div>
+                    <div style="color:#1E293B; font-size:1.02rem; font-weight:800;">{ay_alt:.2f} – {ay_ust:.2f} ₺</div>
+                    <div class="signal-card-sub" style="font-size:0.75rem;">Alt – Üst Sınır ({birim_adi})</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.caption(
+                f"📌 **Aylık Motor:** {ay_motor_kaynak}\n\n"
+                "Bu projeksiyon istatistiksel bir öngörüdür; ani hava olayları ve arz şokları nedeniyle kesin fiyat garantisi vermez."
+            )
+
+    # -------------------------------------------------------------------------
     # 4. OPSİYONEL AÇILIR BÖLÜM: MODEL PERFORMANS KARŞILAŞTIRMASI & DEĞİŞKEN ÖNEMİ
     #    (01_Veri/model_karsilastirma.csv veya 01_Veri/ozellik_onemi.csv yoksa gizli kalır)
     # -------------------------------------------------------------------------
@@ -2979,34 +3313,77 @@ with sekme_karar:
                     st.info("Model karşılaştırma tablosu henüz eklenmedi.")
             with mk_col2:
                 if not df_ozellik_onemi.empty and len(df_ozellik_onemi.columns) >= 2:
-                    st.markdown("##### 🧬 Fiyat Tahminini En Çok Etkileyen Değişkenler")
+                    st.markdown("##### 🧬 Fiyat Tahminini En Çok Etkileyen Faktörler")
                     oz_df = df_ozellik_onemi.copy()
-                    ad_kol = "DEGISKEN" if "DEGISKEN" in oz_df.columns else oz_df.columns[0]
-                    skor_kol = "ONEM_SKORU" if "ONEM_SKORU" in oz_df.columns else oz_df.columns[1]
+                    ad_kol = (
+                        "Etkileyen Faktör"
+                        if "Etkileyen Faktör" in oz_df.columns
+                        else ("DEGISKEN" if "DEGISKEN" in oz_df.columns else oz_df.columns[0])
+                    )
+                    skor_kol = (
+                        "Etki Skoru"
+                        if "Etki Skoru" in oz_df.columns
+                        else ("ONEM_SKORU" if "ONEM_SKORU" in oz_df.columns else oz_df.columns[1])
+                    )
+                    katki_kol = "Katkı Payı" if "Katkı Payı" in oz_df.columns else None
                     oz_df[skor_kol] = pd.to_numeric(oz_df[skor_kol], errors="coerce")
                     oz_df = oz_df.dropna(subset=[ad_kol, skor_kol]).sort_values(skor_kol, ascending=True).tail(12)
                     if not oz_df.empty:
                         oz_df["ETIKET_TR"] = oz_df[ad_kol].apply(_degisken_turkce_etiket)
+                        metin_etiket = (
+                            [f"{v:.3f} ({k})" for v, k in zip(oz_df[skor_kol], oz_df[katki_kol])]
+                            if katki_kol
+                            else [f"{v:.3f}" for v in oz_df[skor_kol]]
+                        )
                         fig_oz = go.Figure(
                             go.Bar(
                                 x=oz_df[skor_kol],
                                 y=oz_df["ETIKET_TR"],
                                 orientation="h",
                                 marker_color="#1B7A43",
-                                text=[f"{v:.3f}" for v in oz_df[skor_kol]],
+                                text=metin_etiket,
                                 textposition="outside",
                             )
                         )
                         fig_oz.update_layout(
                             height=320,
-                            margin=dict(l=10, r=40, t=15, b=10),
-                            xaxis_title="Etki / Önem Skoru",
-                            yaxis_title="Değişken",
-                            xaxis=dict(range=[0, max(float(oz_df[skor_kol].max()) * 1.18, 0.1)]),
+                            margin=dict(l=10, r=60, t=15, b=10),
+                            xaxis_title="Etki Skoru",
+                            yaxis_title="Etkileyen Faktör",
+                            xaxis=dict(range=[0, max(float(oz_df[skor_kol].max()) * 1.25, 0.1)]),
                             plot_bgcolor="#FFFFFF",
                             paper_bgcolor="#FFFFFF",
                         )
                         st.plotly_chart(fig_oz, use_container_width=True)
+
+    # -------------------------------------------------------------------------
+    # 5. OPSİYONEL AÇILIR BÖLÜM: SHAP AÇIKLANABİLİRLİK & MEVSİMSEL KÜME PROFİLLERİ
+    # -------------------------------------------------------------------------
+    karar_shap_yol = _dosya_yolu_coz("03_Model/shap_aciklanabilirlik.png")
+    karar_kume_yol = _dosya_yolu_coz("03_Model/kumeleme_mevsimsel_profiller.png")
+    karar_shap_var = os.path.exists(karar_shap_yol)
+    karar_kume_var = os.path.exists(karar_kume_yol)
+
+    if karar_shap_var or karar_kume_var:
+        with st.expander("🔬 Model Açıklanabilirliği (SHAP Analizi) & Mevsimsel Küme Profilleri", expanded=False):
+            if karar_shap_var:
+                st.markdown("##### 🔬 SHAP Model Açıklanabilirlik Analizi")
+                st.image(str(karar_shap_yol), use_container_width=True)
+                st.markdown(
+                    '<div class="insight-note"><b>💬 SHAP İş Yorumu:</b> '
+                    "Bu grafik, yapay zekâ modelinin fiyat tahminini üretirken hangi değişkene (son hafta fiyatı, 30 günlük oynaklık, ay mevsimselliği vb.) "
+                    "ne yönde ağırlık verdiğini şeffaf biçimde gösterir. Böylece satın alma yöneticisi tahminin yalnızca sonucunu değil, dayanağını da denetleyebilir.</div>",
+                    unsafe_allow_html=True,
+                )
+            if karar_kume_var:
+                st.markdown("##### 🧩 K-Means Mevsimsel Küme Profilleri")
+                st.image(str(karar_kume_yol), use_container_width=True)
+                st.markdown(
+                    '<div class="insight-note"><b>💬 Kümeleme İş Yorumu:</b> '
+                    "Ürünler 12 aylık reel fiyat hareketlerine göre K-Means algoritmasıyla 4 stratejik mevsim grubuna ayrılmıştır; "
+                    "aynı kümedeki ürünler menü planlamasında birbirine ikame edilebilir. Bu gruplama yıllık sözleşme ve stok takviminin omurgasını oluşturur.</div>",
+                    unsafe_allow_html=True,
+                )
 
 # =============================================================================
 # 5. SEKME: 🏪 TASARRUF SİMÜLATÖRÜ
