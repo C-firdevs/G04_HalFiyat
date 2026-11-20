@@ -21,23 +21,90 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* st.metric kartları için özel tasarım */
+    /* Genel Sayfa Ferahlığı ve Kurumsal Tipografi */
+    .block-container {
+        padding-top: 1.6rem !important;
+        padding-bottom: 2.5rem !important;
+        max-width: 1380px;
+    }
+
+    /* Modern Sekme (Tab) Çubuğu */
+    button[data-baseweb="tab"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 10px !important;
+        padding: 8px 16px !important;
+        margin-right: 6px !important;
+        font-weight: 600 !important;
+        font-size: 0.90rem !important;
+        color: #475569 !important;
+        transition: all 0.2s ease;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background-color: #1B7A43 !important;
+        border-color: #1B7A43 !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 3px 10px rgba(27, 122, 67, 0.20) !important;
+    }
+    div[data-baseweb="tab-highlight"] {
+        display: none !important;
+    }
+    div[data-baseweb="tab-border"] {
+        display: none !important;
+    }
+
+    /* Üst Hero Şeridi */
+    .snc-hero {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F0FDF4 100%);
+        border: 1px solid #DCFCE7;
+        border-left: 6px solid #1B7A43;
+        border-radius: 14px;
+        padding: 18px 24px;
+        margin-bottom: 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+    }
+    .snc-hero-title {
+        font-size: 1.55rem;
+        font-weight: 800;
+        color: #0F172A;
+        margin: 0;
+        letter-spacing: -0.3px;
+    }
+    .snc-hero-sub {
+        font-size: 0.90rem;
+        color: #475569;
+        margin: 4px 0 0 0;
+    }
+    .snc-hero-pill {
+        background-color: #DCFCE7;
+        color: #14532D;
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    /* st.metric kartları için ferah kurumsal tasarım */
     div[data-testid="stMetric"] {
         background-color: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        padding: 16px 20px;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+        border-radius: 14px;
+        padding: 16px 18px;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
     }
     div[data-testid="stMetricLabel"] > div {
         color: #64748B;
         font-weight: 600;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
     }
     div[data-testid="stMetricValue"] > div {
-        color: #1E293B;
-        font-weight: 700;
-        font-size: 1.30rem !important;
+        color: #0F172A;
+        font-weight: 800;
+        font-size: 1.32rem !important;
         white-space: normal !important;
         overflow: visible !important;
         text-overflow: unset !important;
@@ -47,35 +114,46 @@ st.markdown(
         white-space: normal !important;
         overflow: visible !important;
         text-overflow: unset !important;
-        font-size: 0.80rem !important;
+        font-size: 0.78rem !important;
         line-height: 1.25 !important;
     }
 
-    /* 4 Zaman Dilimi Özel Sinyal Kartı (Asla Kesilmeyen Temiz Görünüm) */
+    /* Özel Responsive Durum & KPI Kartı */
     .signal-card {
         background-color: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        padding: 14px 16px;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
-        min-height: 108px;
+        border-radius: 14px;
+        padding: 15px 18px;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+        min-height: 102px;
     }
     .signal-card-title {
         color: #64748B;
-        font-size: 0.82rem;
+        font-size: 0.80rem;
         font-weight: 600;
         margin-bottom: 6px;
+        text-transform: none;
     }
     .signal-card-status {
-        font-size: 1.15rem;
+        font-size: 1.16rem;
         font-weight: 800;
         margin-bottom: 6px;
         line-height: 1.2;
     }
     .signal-card-sub {
         color: #475569;
-        font-size: 0.80rem;
-        line-height: 1.3;
+        font-size: 0.79rem;
+        line-height: 1.35;
+    }
+
+    /* Bölüm Başlık Çizgisi */
+    .sec-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0F172A;
+        margin: 14px 0 8px 0;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #E2E8F0;
     }
 
     /* Sol menü (Sidebar) SNC Rozeti */
@@ -83,40 +161,40 @@ st.markdown(
         background: linear-gradient(135deg, #1B7A43 0%, #145E33 100%);
         color: #FFFFFF;
         padding: 16px 18px;
-        border-radius: 12px;
+        border-radius: 14px;
         text-align: center;
-        margin-bottom: 18px;
-        box-shadow: 0 4px 12px rgba(27, 122, 67, 0.22);
+        margin-bottom: 16px;
+        box-shadow: 0 4px 14px rgba(27, 122, 67, 0.22);
     }
     .snc-badge h2 {
         color: #FFFFFF !important;
         margin: 0;
-        font-size: 1.25rem;
+        font-size: 1.22rem;
         font-weight: 800;
-        letter-spacing: 0.4px;
+        letter-spacing: 0.3px;
     }
     .snc-badge p {
         color: #DCFCE7 !important;
         margin: 4px 0 0 0;
-        font-size: 0.80rem;
+        font-size: 0.78rem;
         font-weight: 500;
     }
 
-    /* Fiyat Şoku Alarmı Kutusu */
+    /* Fiyat Şoku Alarmı Kutusu (Sade & Net) */
     .shock-alert {
         background-color: #FEF2F2;
         border: 1px solid #FECACA;
-        border-left: 6px solid #DC2626;
+        border-left: 5px solid #DC2626;
         border-radius: 12px;
-        padding: 16px 20px;
-        margin-bottom: 20px;
+        padding: 14px 18px;
+        margin-bottom: 18px;
         color: #7F1D1D;
-        box-shadow: 0 2px 6px rgba(220, 38, 38, 0.06);
+        font-size: 0.90rem;
     }
     .shock-alert h4 {
         color: #991B1B !important;
-        margin: 0 0 8px 0;
-        font-size: 1.05rem;
+        margin: 0 0 6px 0;
+        font-size: 0.98rem;
         font-weight: 700;
     }
 
@@ -124,24 +202,20 @@ st.markdown(
     .exec-summary-card {
         background-color: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-left: 5px solid #1B7A43;
-        border-radius: 12px;
-        padding: 18px 22px;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
-        margin-top: 10px;
+        border-radius: 14px;
+        padding: 18px 20px;
+        box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+        margin-top: 8px;
         margin-bottom: 14px;
     }
 
-    /* Sekme İçi Kısa Okuma Rehberi Kutusu */
-    .guide-box {
-        background-color: #F0FDF4;
-        border: 1px solid #BBF7D0;
-        border-left: 4px solid #1B7A43;
-        border-radius: 10px;
-        padding: 12px 16px;
-        margin-bottom: 16px;
-        color: #14532D;
-        font-size: 0.92rem;
+    /* Grafik Kapsayıcı Kart Hissi */
+    div[data-testid="stPlotlyChart"] {
+        background-color: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 14px;
+        padding: 8px 10px;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02);
     }
     </style>
     """,
@@ -551,12 +625,19 @@ with st.sidebar:
 
 
 # -----------------------------------------------------------------------------
-# 3. ANA BAŞLIK VE 5 SEKME YAPISI
+# 3. ANA BAŞLIK (MODERN HERO ŞERİDİ) VE 6 SEKME YAPISI
 # -----------------------------------------------------------------------------
-st.title("🌿 SNC | Hal Fiyatlarıyla Akıllı Satın Alma Karar Destek Sistemi")
-st.caption(
-    f"Ege Bölgesi'ndeki **{aktif_sube_sayisi} şubeli** restoran zinciri için enflasyondan arındırılmış (reel) "
-    "fiyat analizi, mevsimsellik takvimi ve yapay zekâ destekli satın alma platformu."
+st.markdown(
+    f"""
+    <div class="snc-hero" translate="no">
+        <div>
+            <div class="snc-hero-title">🌿 SNC | Akıllı Satın Alma Platformu</div>
+            <div class="snc-hero-sub">İzmir Hal Fiyatları (2006–2025) &amp; TÜFE Bazlı Reel Karar Destek Sistemi</div>
+        </div>
+        <div class="snc-hero-pill">🏪 {aktif_sube_sayisi} Aktif Şube • Odak: {secili_odak_urun}</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 sekme_panel, sekme_analiz, sekme_strateji, sekme_karar, sekme_simulator, sekme_recete = st.tabs(
@@ -582,16 +663,11 @@ AY_TERS_SIRASI = {v: k for k, v in AY_SIRASI.items()}
 # 1. SEKME: 📊 PANEL & ÖZET
 # =============================================================================
 with sekme_panel:
-    st.markdown(
-        f"""
-        <div class="guide-box">
-            <b>💡 Bu Ekran Ne Gösterir?</b> Satın alma ekibinin sabah ekrana baktığında ilk görmesi gereken özet panodur:
-            <b>fiyatı aniden dalgalanan riskli ürünler</b>, 20 yıllık genel piyasa göstergeleri ve
-            <b>{aktif_sube_sayisi} şubeniz</b> için seçilen aya özel tek tıkla indirilebilir yönetici brifingi burada yer alır.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    with st.expander("ℹ️ Bu Ekran Nasıl Okunur?", expanded=False):
+        st.write(
+            f"Fiyatı son hafta aniden dalgalanan ürünleri, 20 yıllık genel piyasa özetini ve "
+            f"**{aktif_sube_sayisi} şubeniz** için tek tıkla indirilebilir renkli PDF brifingini buradan inceleyebilirsiniz."
+        )
 
     # -------------------------------------------------------------------------
     # A) FİYAT ŞOKU ALARMI (Son kayıtlarda REEL_OYNAKLIK_7 > REEL_OYNAKLIK_30)
@@ -1054,18 +1130,13 @@ with sekme_panel:
 # 2. SEKME: 📅 ANALİZ & ZAMANLAMA
 # =============================================================================
 with sekme_analiz:
-    st.subheader(f"📅 Analiz & Satın Alma Zamanlaması — Odak Ürün: **{secili_odak_urun}**")
-    st.markdown(
-        """
-        <div class="guide-box">
-            <b>💡 Bu Ekran Nasıl Okunur?</b>
-            <b>Sol Üst:</b> Ürünün yıllar içindeki fiyat değişimini gösterir (<i>Nominal</i> etiket fiyatı, <i>Reel</i> ise enflasyondan arındırılmış gerçek değerdir).
-            <b>Sağ Üst:</b> <b>Yeşil</b> kutular o ürünün yıl içindeki <b>en ucuz aylarını</b>, <b>Kırmızı</b> kutular <b>en pahalı aylarını</b> gösterir.
-            <b>Alt Bölüm:</b> Haftanın hangi günü halden daha ucuza alınabileceğini ve yıllar arası fiyat artışının ne kadarının gerçek zam, ne kadarının TÜFE enflasyonu olduğunu gösterir.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.subheader(f"📅 Analiz & Zamanlama — {secili_odak_urun}")
+    with st.expander("ℹ️ Bu Ekran Nasıl Okunur?", expanded=False):
+        st.write(
+            "**Sol Üst:** Nominal (etiket) ve Reel (TÜFE arındırılmış) fiyat geçmişi. "
+            "**Sağ Üst:** Yeşil kutular en ucuz ayları, kırmızı kutular en pahalı ayları gösterir. "
+            "**Alt Bölüm:** Haftanın en ucuz hal günü ve yıllar arası gerçek zam / TÜFE ayrıştırması."
+        )
 
     df_urun = (
         df_ozellikli[df_ozellikli["MAL_ADI"] == secili_odak_urun]
@@ -1441,18 +1512,13 @@ with sekme_analiz:
 # 3. SEKME: 🎯 STRATEJİ & RİSK
 # =============================================================================
 with sekme_strateji:
-    st.subheader("🎯 Stratejik Satın Alma, Risk Matrisi ve Geçmiş Performans (Backtest)")
-    st.markdown(
-        """
-        <div class="guide-box">
-            <b>💡 Bu Ekran Nasıl Okunur?</b>
-            <b>1. Kraljic Matrisi (Sol):</b> Sağ üstteki <b>Kırmızı (Stratejik)</b> ürünler hem pahalı hem çok dalgalıdır; bunlarda <i>sabit fiyatlı sözleşme</i> şarttır.
-            <b>2. Pazarlık Makası (Sağ):</b> Aynı gün haldeki en düşük ve en yüksek fiyat farkı yüksek olan ürünlerde <i>pazarlık gücü</i> yüksektir.
-            <b>3. Geri-Test / Backtest (Alt):</b> Geçen 1 yılda her hafta sabit alan bir restoran ile sistemin <i>'UYGUN'</i> dediği haftalarda alan restoranın gerçek maliyet farkını kanıtlar.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.subheader("🎯 Stratejik Satın Alma, Risk & Backtest")
+    with st.expander("ℹ️ Bu Ekran Nasıl Okunur?", expanded=False):
+        st.write(
+            "**Kraljic Matrisi:** Sağ üstteki kırmızı ürünler hem pahalı hem risklidir (sözleşme gerektirir). "
+            "**Pazarlık Makası:** Aynı gün içi en yüksek–en düşük fiyat farkı yüksek ürünlerde pazarlık gücü fazladır. "
+            "**Backtest:** Geçen 1 yılda sistemin 'UYGUN' haftalarında alım yapan restoranın kazancını kanıtlar."
+        )
 
     # -------------------------------------------------------------------------
     # 1. ÜST BÖLÜM: SOL (KRALJIC SATIN ALMA MATRİSİ) | SAĞ (PAZARLIK GÜCÜ & KALİTE MAKASI)
@@ -1801,18 +1867,13 @@ with sekme_strateji:
 # 4. SEKME: 🤖 KARAR EKRANI
 # =============================================================================
 with sekme_karar:
-    st.subheader(f"🤖 Akıllı Satın Alma Karar Ekranı — **{secili_odak_urun}**")
-    st.markdown(
-        f"""
-        <div class="guide-box">
-            <b>💡 Bu Ekran Ne İşe Yarar?</b> Seçtiğiniz ürün için satın alma kararını <b>3 net adımda</b> vermenizi sağlar:<br>
-            <b>1. Adım (Üst):</b> Piyasa şu an tarihsel ortalamaya göre ucuz mu pahalı mı? (Günlük / Haftalık / Aylık / Mevsimsel)<br>
-            <b>2. Adım (Sol):</b> Gelecek hafta fiyatın artması mı düşmesi mi bekleniyor? <i>(Şimdi Al / Bekle / Normal)</i><br>
-            <b>3. Adım (Sağ):</b> Tedarikçinin <b>{aktif_sube_sayisi} şubeniz</b> için verdiği fiyat teklifi hal piyasasına göre uygun mu, pazarlık mı yapmalısınız?
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.subheader(f"🤖 Karar Ekranı — {secili_odak_urun}")
+    with st.expander("ℹ️ Bu Ekran Nasıl Okunur?", expanded=False):
+        st.write(
+            f"**1. Adım:** Piyasanın günlük/haftalık/aylık/mevsimsel ucuzluk durumu. "
+            f"**2. Adım:** Gelecek hafta fiyat tahmini ve Şimdi Al / Bekle önerisi. "
+            f"**3. Adım:** Tedarikçinizin **{aktif_sube_sayisi} şube** için verdiği teklifin hal bandına göre denetimi."
+        )
 
     df_urun_karar = (
         df_ozellikli[df_ozellikli["MAL_ADI"] == secili_odak_urun]
@@ -2345,7 +2406,7 @@ def _tasarimli_excel_olustur(
     # 2. Satır: Şube / Fire / Depo Parametreleri ve Tarih
     ws.merge_cells("A2:K2")
     ws["A2"] = (
-        f"Şube Sayısı: {sube_sayisi}  |  Beklenen Fire Oranı: %{fire_orani:.1f}  |  "
+        f"Şube Sayısı: {sube_sayisi}  |  Beklenen Zayi / Bozulma Oranı: %{fire_orani:.1f}  |  "
         f"Depolama Maliyeti: %{depo_orani:.1f}  |  "
         f"Rapor Tarihi: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     )
@@ -2550,7 +2611,7 @@ def _tasarimli_excel_olustur(
 
     s2_satirlar = [
         ("Mevcut Durum: Klasik Spot Alım", float(toplam_spot), 0.0, 0.0, "Fiyat dalgalanmasına açık; referans baz senaryo", zebra_koyu, veri_font),
-        ("Senaryo A: Sadece Sabit Fiyat Sözleşmesi", float(senaryo_a_maliyet), float(senaryo_a_tasarruf), float(senaryo_a_pct), "Düşük Risk • %0 Fire & %0 Depo maliyeti", sari_dolgu, sari_font),
+        ("Senaryo A: Sadece Sabit Fiyat Sözleşmesi", float(senaryo_a_maliyet), float(senaryo_a_tasarruf), float(senaryo_a_pct), "Düşük Risk • %0 Zayi/Bozulma & %0 Depo maliyeti", sari_dolgu, sari_font),
         ("Senaryo B: SNC Karma Strateji (Stok + Sözleşme)", float(toplam_akilli), float(toplam_net_tasarruf), float(senaryo_b_pct), "Önerilen • En Yüksek Net Tasarruf (Ürün bazlı optimum)", yesil_dolgu, yesil_font),
     ]
     for r_i, (s_ad, s_mal, s_tas, s_pct, s_not, s_dolgu, s_fnt) in enumerate(s2_satirlar, start=4):
@@ -2577,21 +2638,15 @@ def _tasarimli_excel_olustur(
 
 
 with sekme_simulator:
-    st.subheader("🏪 Çok Şubeli Restoran Zinciri Yıllık Satın Alma & Tasarruf Simülatörü")
-    st.markdown(
-        """
-        <div class="guide-box">
-            <b>💡 Bu Ekran Ne İşe Yarar?</b>
-            Restoran zincirinizin <b>her ay normal piyasa fiyatından (Spot)</b> alım yapması ile
-            <b>ürünleri en ucuz ayında stoklayarak veya sabit fiyatlı sözleşmeyle (Akıllı Alım)</b> temin etmesi arasındaki
-            <b>yıllık net TL tasarrufunu</b> fire ve soğuk hava depo maliyetlerini düşerek hesaplar.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.subheader("🏪 Çok Şubeli Yıllık Tasarruf Simülatörü")
+    with st.expander("ℹ️ Bu Ekran Nasıl Okunur?", expanded=False):
+        st.write(
+            "Her ay normal piyasa fiyatından (Spot) alım yapmak yerine, en ucuz ayda stoklama veya sabit fiyatlı sözleşme ile "
+            "zayi/bozulma ve soğuk hava depo maliyetlerini düşerek yıllık net kazancınızı hesaplar."
+        )
 
     # -------------------------------------------------------------------------
-    # 1. KULLANICI GİRDİLERİ (ŞUBE SAYISI, FİRE ORANI %, DEPOLAMA MALİYETİ %)
+    # 1. KULLANICI GİRDİLERİ (ŞUBE SAYISI, ZAYİ/BOZULMA ORANI %, DEPOLAMA MALİYETİ %)
     # -------------------------------------------------------------------------
     param_col1, param_col2, param_col3 = st.columns(3, gap="large")
     with param_col1:
@@ -2605,12 +2660,12 @@ with sekme_simulator:
         )
     with param_col2:
         fire_orani = st.slider(
-            "🍂 Beklenen Fire Oranı (%)",
+            "🍂 Beklenen Zayi / Bozulma Oranı (%)",
             min_value=0.0,
             max_value=25.0,
             value=6.0,
             step=0.5,
-            help="Fiziksel stoklama durumunda beklenen ürün kaybı/fire yüzdesi.",
+            help="Fiziksel stoklama durumunda beklenen ürün zayiatı / bozulma yüzdesi.",
         )
     with param_col3:
         depo_orani = st.slider(
@@ -2748,7 +2803,7 @@ with sekme_simulator:
                 akilli_birim_fiyat = guncel_fiyat * (1.0 - sozlesme_indirim_orani)
                 yillik_akilli_maliyet = yillik_toplam_kg * akilli_birim_fiyat
                 strateji_onerisi = (
-                    f"⚠️ Fiziksel Stok Zararlı (Fire+Depo %{(toplam_stok_maliyet_orani*100):.1f} >= Avantaj %{(avantaj_orani*100):.1f}) "
+                    f"⚠️ Fiziksel Stok Zararlı (Zayi+Depo %{(toplam_stok_maliyet_orani*100):.1f} >= Avantaj %{(avantaj_orani*100):.1f}) "
                     f"→ {en_ucuz_ay} Ayında Sabit Fiyat Sözleşmesi"
                 )
             else:
@@ -2845,7 +2900,7 @@ with sekme_simulator:
             go.Bar(
                 x=df_sim_sonuc["MAL_ADI"],
                 y=df_sim_sonuc["YILLIK_AKILLI_MALIYET"],
-                name="SNC Akıllı Alım Maliyeti (Fire & Depo Dahil TL)",
+                name="SNC Akıllı Alım Maliyeti (Zayi & Depo Dahil TL)",
                 marker_color="#1B7A43",
                 text=[f"{v:,.0f} ₺".replace(",", ".") for v in df_sim_sonuc["YILLIK_AKILLI_MALIYET"]],
                 textposition="outside",
@@ -2900,15 +2955,15 @@ with sekme_simulator:
         with sen_col1:
             st.markdown(
                 f"""
-                <div class="signal-card" style="border-top:5px solid #CA8A04; padding:18px 20px;">
+                <div class="signal-card" translate="no" style="border-top:5px solid #CA8A04; padding:18px 20px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span style="font-weight:800; font-size:1.05rem; color:#854D0E;">🟡 Senaryo A: Güvenli Sözleşme Stratejisi</span>
-                        <span style="background:#FEF9C3; color:#854D0E; padding:3px 9px; border-radius:8px; font-size:0.78rem; font-weight:700;">Düşük Risk • %0 Fire</span>
+                        <span style="font-weight:800; font-size:1.02rem; color:#854D0E;">🟡 Senaryo A: Güvenli Sözleşme Stratejisi</span>
+                        <span style="background:#FEF9C3; color:#854D0E; padding:3px 9px; border-radius:8px; font-size:0.78rem; font-weight:700;">Düşük Risk • %0 Zayi</span>
                     </div>
-                    <div style="color:#475569; font-size:0.88rem; margin-bottom:12px;">
+                    <div style="color:#475569; font-size:0.86rem; margin-bottom:12px;">
                         Hiç fiziksel stoklama yapılmaz; tüm ürünlerde mevsimsel dip fiyatlar baz alınarak tedarikçilerle <b>Sabit Fiyatlı Sözleşme</b> imzalanır.
                     </div>
-                    <div style="font-size:0.95rem; color:#1E293B; line-height:1.6;">
+                    <div style="font-size:0.93rem; color:#1E293B; line-height:1.6;">
                         • <b>Yıllık Maliyet:</b> {toplam_senaryo_a_tl:,.0f} ₺<br>
                         • <b>Yıllık Net Tasarruf:</b> <span style="color:#854D0E; font-weight:800;">{toplam_senaryo_a_tasarruf_tl:,.0f} ₺ (-%{senaryo_a_yuzde:.1f})</span><br>
                         • <b>Şube Başı Kazanç:</b> {(toplam_senaryo_a_tasarruf_tl / max(sube_sayisi, 1)):,.0f} ₺ / Yıl
@@ -2922,19 +2977,19 @@ with sekme_simulator:
             fark_metni = (
                 f"Senaryo A'ya göre ek +{senaryo_b_ekstra_kazanc:,.0f} ₺ kazanç".replace(",", ".")
                 if senaryo_b_ekstra_kazanc >= 0
-                else f"Senaryo A {abs(senaryo_b_ekstra_kazanc):,.0f} ₺ daha avantajlı (Fire+Depo yüksek)".replace(",", ".")
+                else f"Senaryo A {abs(senaryo_b_ekstra_kazanc):,.0f} ₺ daha avantajlı (Zayi+Depo yüksek)".replace(",", ".")
             )
             st.markdown(
                 f"""
-                <div class="signal-card" style="border-top:5px solid #1B7A43; padding:18px 20px; background:#F0FDF4;">
+                <div class="signal-card" translate="no" style="border-top:5px solid #1B7A43; padding:18px 20px; background:#F0FDF4;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span style="font-weight:800; font-size:1.05rem; color:#14532D;">🟢 Senaryo B: SNC Karma Optimizasyon</span>
+                        <span style="font-weight:800; font-size:1.02rem; color:#14532D;">🟢 Senaryo B: SNC Karma Optimizasyon</span>
                         <span style="background:#DCFCE7; color:#166534; padding:3px 9px; border-radius:8px; font-size:0.78rem; font-weight:700;">Önerilen Strateji</span>
                     </div>
-                    <div style="color:#334155; font-size:0.88rem; margin-bottom:12px;">
-                        Ürün bazında otomatik seçim: Dayanıklı ve yüksek avantajlı ürünlerde <b>Toplu Alım/Stok</b>, fire/depo riskli ürünlerde <b>Sabit Sözleşme</b> uygulanır.
+                    <div style="color:#334155; font-size:0.86rem; margin-bottom:12px;">
+                        Ürün bazında otomatik seçim: Dayanıklı ve yüksek avantajlı ürünlerde <b>Toplu Alım/Stok</b>, zayi/depo riskli ürünlerde <b>Sabit Sözleşme</b> uygulanır.
                     </div>
-                    <div style="font-size:0.95rem; color:#1E293B; line-height:1.6;">
+                    <div style="font-size:0.93rem; color:#1E293B; line-height:1.6;">
                         • <b>Yıllık Maliyet:</b> {toplam_akilli_tl:,.0f} ₺<br>
                         • <b>Yıllık Net Tasarruf:</b> <span style="color:#15803D; font-weight:800;">{toplam_net_tasarruf_tl:,.0f} ₺ (-%{toplam_tasarruf_yuzde:.1f})</span><br>
                         • <b>Karşılaştırma:</b> <b>{fark_metni}</b>
@@ -3006,18 +3061,12 @@ with sekme_simulator:
 # 6. SEKME: 🥗 MENÜ & REÇETE MALİYET ASİSTANI (HAZIR ŞABLON + SERBEST TARİF)
 # =============================================================================
 with sekme_recete:
-    st.subheader("🥗 Şefin Akıllı Menü & Reçete Maliyet Asistanı")
-    st.markdown(
-        f"""
-        <div class="guide-box">
-            <b>💡 Bu Ekran Ne İşe Yarar?</b>
-            Restoran menünüzdeki hazır bir tarifi seçin veya <b>kendi özel tarifinizi oluşturup</b> malzemelerini ekleyin.
-            Sistem <b>12 ay boyunca 1 porsiyonun sebze-meyve maliyetini</b>, <b>{aktif_sube_sayisi} şubenizin aylık toplam malzeme yükünü</b>
-            ve seçtiğiniz ayda maliyeti en çok şişiren ürüne karşı <b>mevsimlik ikame önerisini</b> otomatik hesaplar.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.subheader("🥗 Şefin Akıllı Menü & Reçete Maliyeti")
+    with st.expander("ℹ️ Bu Ekran Nasıl Okunur?", expanded=False):
+        st.write(
+            f"Hazır Ege restoran tariflerinden birini seçin veya **kendi tarifinizi oluşturun**. "
+            f"12 aylık porsiyon maliyet eğrisini, **{aktif_sube_sayisi} şubenizin** aylık toplam yükünü ve mevsimlik ikame önerisini anında görün."
+        )
 
     mevcut_tum_urunler = (
         sorted(df_aylik_reel["MAL_ADI"].dropna().unique().tolist())
