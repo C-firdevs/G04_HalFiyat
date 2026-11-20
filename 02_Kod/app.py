@@ -266,20 +266,23 @@ st.markdown(
 
 
 # -----------------------------------------------------------------------------
-# 1. VERİ VE MODEL YÜKLEME ALTYAPISI (GÖRECELİ YOL + GÜVENLİ YEDEK)
+# 1. VERİ VE MODEL YÜKLEME ALTYAPISI (SUNUCU UYUMLU BASE_DIR + GÜVENLİ YEDEK)
 # -----------------------------------------------------------------------------
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
 def _dosya_yolu_coz(goreceli_yol: str) -> Path:
-    """Hem ana dizinden hem de 02_Kod/ içinden çalıştırıldığında göreceli yolu çözer."""
+    """Hem yerel bilgisayarda hem Streamlit Community Cloud üzerinde proje köküne (BASE_DIR) göre yolu çözer."""
+    kok_yol = BASE_DIR / goreceli_yol
+    if kok_yol.exists():
+        return kok_yol
     dogrudan = Path(goreceli_yol)
     if dogrudan.exists():
         return dogrudan
     ust_dizin = Path("..") / goreceli_yol
     if ust_dizin.exists():
         return ust_dizin
-    betik_koku = Path(__file__).resolve().parent.parent / goreceli_yol
-    if betik_koku.exists():
-        return betik_koku
-    return dogrudan
+    return kok_yol
 
 
 def _sayiya_cevir(df: pd.DataFrame, sutunlar: list) -> pd.DataFrame:
@@ -1409,14 +1412,18 @@ with sekme_panel:
         unsafe_allow_html=True,
     )
 
-    pdf_bayt = _brifing_pdf_olustur(
-        ay_adi=secili_ay_adi,
-        gel_ay_adi=gelecek_ay_adi,
-        sube_say=aktif_sube_sayisi,
-        riskler=riskli_3_liste,
-        artislar=artis_3_liste,
-        firsatlar=firsat_liste,
-    )
+    pdf_bayt = None
+    try:
+        pdf_bayt = _brifing_pdf_olustur(
+            ay_adi=secili_ay_adi,
+            gel_ay_adi=gelecek_ay_adi,
+            sube_say=aktif_sube_sayisi,
+            riskler=riskli_3_liste,
+            artislar=artis_3_liste,
+            firsatlar=firsat_liste,
+        )
+    except Exception:
+        pdf_bayt = None
 
     ozet_txt_icerik = (
         f"SNC | AKILLI SATIN ALMA - PAZARTESI SABAHI YONETICI BRIFINGI\n"
@@ -1434,23 +1441,32 @@ with sekme_panel:
         f"Not: Fiyatlar TCMB EVDS TUFE endeksi ile enflasyondan arindirilmis reel fiyatlardir.\n"
     )
 
-    dl_c1, dl_c2 = st.columns([1, 1])
-    with dl_c1:
+    if pdf_bayt is not None:
+        dl_c1, dl_c2 = st.columns([1, 1])
+        with dl_c1:
+            st.download_button(
+                label=f"📝 Yönetici Brifingi (.txt) — {secili_ay_adi}",
+                data=ozet_txt_icerik.encode("utf-8"),
+                file_name=f"SNC_Yonetici_Brifingi_{secili_ay_adi}.txt",
+                mime="text/plain",
+                type="primary",
+                use_container_width=True,
+            )
+        with dl_c2:
+            st.download_button(
+                label=f"📄 Renkli Yönetici Brifingi (.pdf) — {secili_ay_adi}",
+                data=pdf_bayt,
+                file_name=f"SNC_Yonetici_Brifingi_{secili_ay_adi}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+    else:
         st.download_button(
             label=f"📝 Yönetici Brifingi (.txt) — {secili_ay_adi}",
             data=ozet_txt_icerik.encode("utf-8"),
             file_name=f"SNC_Yonetici_Brifingi_{secili_ay_adi}.txt",
             mime="text/plain",
             type="primary",
-            use_container_width=True,
-        )
-    with dl_c2:
-        st.download_button(
-            label=f"📄 Renkli Yönetici Brifingi (.pdf) — {secili_ay_adi}",
-            data=pdf_bayt,
-            file_name=f"SNC_Yonetici_Brifingi_{secili_ay_adi}.pdf",
-            mime="application/pdf",
-            use_container_width=True,
         )
 
     # -------------------------------------------------------------------------
