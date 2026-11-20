@@ -1515,27 +1515,29 @@ with sekme_panel:
 
         if shap_var or kume_gorsel_var:
             with st.expander("🔬 Model Açıklanabilirliği (SHAP Analizi) & Mevsimsel Küme Profilleri", expanded=False):
-                g_sol, g_sag = st.columns([0.92, 1.08], gap="large")
-                with g_sol:
-                    if shap_var:
-                        st.markdown("##### 🔬 SHAP Model Açıklanabilirlik Analizi")
+                if shap_var:
+                    st.markdown("##### 🔬 SHAP Model Açıklanabilirlik Analizi")
+                    _, s_orta, _ = st.columns([0.12, 0.76, 0.12])
+                    with s_orta:
                         st.image(str(shap_gorsel_yolu), use_container_width=True)
-                        st.markdown(
-                            '<div class="insight-note"><b>💬 SHAP İş Yorumu:</b> '
-                            "Bu grafik, yapay zekâ modelinin fiyat tahminini üretirken hangi faktöre (1 gün önceki fiyat, 30 günlük fiyat dalgalanması, haftalık mevsimsellik vb.) "
-                            "ne yönde ağırlık verdiğini şeffaf biçimde gösterir. Böylece satın alma yöneticisi tahminin yalnızca sonucunu değil, dayanağını da denetleyebilir.</div>",
-                            unsafe_allow_html=True,
-                        )
-                with g_sag:
-                    if kume_gorsel_var:
-                        st.markdown("##### 🧩 K-Means Mevsimsel Küme Profilleri")
+                    st.markdown(
+                        '<div class="insight-note"><b>💬 SHAP İş Yorumu:</b> '
+                        "Bu grafik, yapay zekâ modelinin fiyat tahminini üretirken hangi faktöre (1 gün önceki fiyat, 30 günlük fiyat dalgalanması, haftalık mevsimsellik vb.) "
+                        "ne yönde ağırlık verdiğini şeffaf biçimde gösterir. Böylece satın alma yöneticisi tahminin yalnızca sonucunu değil, dayanağını da denetleyebilir.</div>",
+                        unsafe_allow_html=True,
+                    )
+                if kume_gorsel_var:
+                    st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+                    st.markdown("##### 🧩 K-Means Mevsimsel Küme Profilleri")
+                    _, k_orta, _ = st.columns([0.06, 0.88, 0.06])
+                    with k_orta:
                         st.image(str(kume_gorsel_yolu), use_container_width=True)
-                        st.markdown(
-                            '<div class="insight-note"><b>💬 Kümeleme İş Yorumu:</b> '
-                            "Ürünler 12 aylık reel fiyat hareketlerine göre K-Means algoritmasıyla 4 stratejik mevsim grubuna ayrılmıştır; "
-                            "aynı kümedeki ürünler menü planlamasında birbirine ikame edilebilir. Bu gruplama yıllık sözleşme ve stok takviminin omurgasını oluşturur.</div>",
-                            unsafe_allow_html=True,
-                        )
+                    st.markdown(
+                        '<div class="insight-note"><b>💬 Kümeleme İş Yorumu:</b> '
+                        "Ürünler 12 aylık reel fiyat hareketlerine göre K-Means algoritmasıyla 4 stratejik mevsim grubuna ayrılmıştır; "
+                        "aynı kümedeki ürünler menü planlamasında birbirine ikame edilebilir. Bu gruplama yıllık sözleşme ve stok takviminin omurgasını oluşturur.</div>",
+                        unsafe_allow_html=True,
+                    )
 
 
 # =============================================================================
@@ -3385,27 +3387,29 @@ with sekme_karar:
 
     if karar_shap_var or karar_kume_var:
         with st.expander("🔬 Model Açıklanabilirliği (SHAP Analizi) & Mevsimsel Küme Profilleri", expanded=False):
-            k_g_sol, k_g_sag = st.columns([0.92, 1.08], gap="large")
-            with k_g_sol:
-                if karar_shap_var:
-                    st.markdown("##### 🔬 SHAP Model Açıklanabilirlik Analizi")
+            if karar_shap_var:
+                st.markdown("##### 🔬 SHAP Model Açıklanabilirlik Analizi")
+                _, ks_orta, _ = st.columns([0.12, 0.76, 0.12])
+                with ks_orta:
                     st.image(str(karar_shap_yol), use_container_width=True)
-                    st.markdown(
-                        '<div class="insight-note"><b>💬 SHAP İş Yorumu:</b> '
-                        "Bu grafik, yapay zekâ modelinin fiyat tahminini üretirken hangi faktöre (1 gün önceki fiyat, 30 günlük fiyat dalgalanması, haftalık mevsimsellik vb.) "
-                        "ne yönde ağırlık verdiğini şeffaf biçimde gösterir. Böylece satın alma yöneticisi tahminin yalnızca sonucunu değil, dayanağını da denetleyebilir.</div>",
-                        unsafe_allow_html=True,
-                    )
-            with k_g_sag:
-                if karar_kume_var:
-                    st.markdown("##### 🧩 K-Means Mevsimsel Küme Profilleri")
+                st.markdown(
+                    '<div class="insight-note"><b>💬 SHAP İş Yorumu:</b> '
+                    "Bu grafik, yapay zekâ modelinin fiyat tahminini üretirken hangi faktöre (1 gün önceki fiyat, 30 günlük fiyat dalgalanması, haftalık mevsimsellik vb.) "
+                    "ne yönde ağırlık verdiğini şeffaf biçimde gösterir. Böylece satın alma yöneticisi tahminin yalnızca sonucunu değil, dayanağını da denetleyebilir.</div>",
+                    unsafe_allow_html=True,
+                )
+            if karar_kume_var:
+                st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+                st.markdown("##### 🧩 K-Means Mevsimsel Küme Profilleri")
+                _, kk_orta, _ = st.columns([0.06, 0.88, 0.06])
+                with kk_orta:
                     st.image(str(karar_kume_yol), use_container_width=True)
-                    st.markdown(
-                        '<div class="insight-note"><b>💬 Kümeleme İş Yorumu:</b> '
-                        "Ürünler 12 aylık reel fiyat hareketlerine göre K-Means algoritmasıyla 4 stratejik mevsim grubuna ayrılmıştır; "
-                        "aynı kümedeki ürünler menü planlamasında birbirine ikame edilebilir. Bu gruplama yıllık sözleşme ve stok takviminin omurgasını oluşturur.</div>",
-                        unsafe_allow_html=True,
-                    )
+                st.markdown(
+                    '<div class="insight-note"><b>💬 Kümeleme İş Yorumu:</b> '
+                    "Ürünler 12 aylık reel fiyat hareketlerine göre K-Means algoritmasıyla 4 stratejik mevsim grubuna ayrılmıştır; "
+                    "aynı kümedeki ürünler menü planlamasında birbirine ikame edilebilir. Bu gruplama yıllık sözleşme ve stok takviminin omurgasını oluşturur.</div>",
+                    unsafe_allow_html=True,
+                )
 
 # =============================================================================
 # 5. SEKME: 🏪 TASARRUF SİMÜLATÖRÜ
