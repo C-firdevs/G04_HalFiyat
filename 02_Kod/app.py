@@ -2321,6 +2321,8 @@ def _tasarimli_excel_olustur(
     toplam_akilli: float,
     toplam_net_tasarruf: float,
     toplam_tasarruf_yuzde: float,
+    senaryo_a_maliyet: float = 0.0,
+    senaryo_a_tasarruf: float = 0.0,
 ) -> bytes:
     """openpyxl ile kurumsal tasarımlı Satin_Alma_Plani Excel (.xlsx) çıktısı üretir."""
     from openpyxl import Workbook
@@ -2524,6 +2526,49 @@ def _tasarimli_excel_olustur(
                     max_uzunluk = uzunluk
         ws.column_dimensions[harf].width = min(max(max_uzunluk + 4, 13), 44)
 
+    # 2. Sayfa: Senaryo A vs. Senaryo B Karşılaştırma Sayfası
+    ws2 = wb.create_sheet(title="Senaryo_Karsilastirma")
+    ws2.merge_cells("A1:E1")
+    ws2["A1"] = "SNC | Senaryo A (Sadece Sözleşme) vs. Senaryo B (Karma Optimizasyon)"
+    ws2["A1"].font = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
+    ws2["A1"].fill = PatternFill(start_color="1B7A43", end_color="1B7A43", fill_type="solid")
+    ws2["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    ws2.row_dimensions[1].height = 28
+
+    s2_basliklar = ["Strateji / Senaryo", "Yıllık Toplam Maliyet", "Yıllık Net Tasarruf", "Tasarruf Oranı", "Risk & Operasyon Notu"]
+    ws2.row_dimensions[3].height = 24
+    for col_idx, b_metin in enumerate(s2_basliklar, start=1):
+        c = ws2.cell(row=3, column=col_idx, value=b_metin)
+        c.fill = baslik_dolgu
+        c.font = baslik_font
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = hucre_cerceve
+
+    senaryo_a_pct = (senaryo_a_tasarruf / toplam_spot) if toplam_spot > 0 else 0.0
+    senaryo_b_pct = (toplam_net_tasarruf / toplam_spot) if toplam_spot > 0 else 0.0
+
+    s2_satirlar = [
+        ("Mevcut Durum: Klasik Spot Alım", float(toplam_spot), 0.0, 0.0, "Fiyat dalgalanmasına açık; referans baz senaryo", zebra_koyu, veri_font),
+        ("Senaryo A: Sadece Sabit Fiyat Sözleşmesi", float(senaryo_a_maliyet), float(senaryo_a_tasarruf), float(senaryo_a_pct), "Düşük Risk • %0 Fire & %0 Depo maliyeti", sari_dolgu, sari_font),
+        ("Senaryo B: SNC Karma Strateji (Stok + Sözleşme)", float(toplam_akilli), float(toplam_net_tasarruf), float(senaryo_b_pct), "Önerilen • En Yüksek Net Tasarruf (Ürün bazlı optimum)", yesil_dolgu, yesil_font),
+    ]
+    for r_i, (s_ad, s_mal, s_tas, s_pct, s_not, s_dolgu, s_fnt) in enumerate(s2_satirlar, start=4):
+        ws2.row_dimensions[r_i].height = 24
+        degerler = [s_ad, s_mal, s_tas, s_pct, s_not]
+        for c_i, val in enumerate(degerler, start=1):
+            hc = ws2.cell(row=r_i, column=c_i, value=val)
+            hc.fill = s_dolgu
+            hc.font = s_fnt
+            hc.border = hucre_cerceve
+            hc.alignment = Alignment(horizontal="left" if c_i in [1, 5] else "right", vertical="center")
+            if c_i in [2, 3]:
+                hc.number_format = '#,##0 "₺"'
+            elif c_i == 4:
+                hc.number_format = "0.0%"
+
+    for col_idx, genislik in enumerate([44, 24, 24, 18, 48], start=1):
+        ws2.column_dimensions[get_column_letter(col_idx)].width = genislik
+
     tampon = BytesIO()
     wb.save(tampon)
     tampon.seek(0)
@@ -2692,9 +2737,12 @@ with sekme_simulator:
             # En ucuz dönemde alım yapıldığında brüt birim fiyat:
             en_ucuz_donem_birim_fiyat = guncel_fiyat * (1.0 - avantaj_orani)
 
-            # Fire + Depo oranı avantaj oranını aşıyor mu kontrol et
+            # Senaryo A (Sadece Sabit Fiyat Sözleşmesi - %0 Fire & %0 Depo)
+            sozlesme_sadece_maliyet = yillik_toplam_kg * guncel_fiyat * (1.0 - avantaj_orani * 0.65)
+            sozlesme_sadece_tasarruf = max(0.0, yillik_spot_maliyet - sozlesme_sadece_maliyet)
+
+            # Senaryo B (SNC Karma Strateji): Fire + Depo oranı avantaj oranını aşıyor mu kontrol et
             if toplam_stok_maliyet_orani >= avantaj_orani:
-                # Fiziksel stoklama zararlı -> Sabit Fiyat Sözleşmesi öner (fire/depo olmadan mevsimsel avantajın %65'i sözleşmeyle kilitlenir)
                 sozlesme_indirim_orani = avantaj_orani * 0.65
                 akilli_birim_fiyat = guncel_fiyat * (1.0 - sozlesme_indirim_orani)
                 yillik_akilli_maliyet = yillik_toplam_kg * akilli_birim_fiyat
@@ -2703,7 +2751,6 @@ with sekme_simulator:
                     f"→ {en_ucuz_ay} Ayında Sabit Fiyat Sözleşmesi"
                 )
             else:
-                # Fiziksel stoklama kârlı: net avantaj = avantaj_orani - (fire + depo)
                 net_avantaj_orani = avantaj_orani - toplam_stok_maliyet_orani
                 akilli_birim_fiyat = guncel_fiyat * (1.0 - net_avantaj_orani)
                 yillik_akilli_maliyet = yillik_toplam_kg * akilli_birim_fiyat
@@ -2725,6 +2772,8 @@ with sekme_simulator:
                     "GUNCEL_BIRIM_FIYAT": round(guncel_fiyat, 2),
                     "MEVSIMSEL_AVANTAJ_YUZDE": round(avantaj_orani * 100.0, 1),
                     "YILLIK_SPOT_MALIYET": round(yillik_spot_maliyet, 0),
+                    "SENARYO_A_MALIYET": round(sozlesme_sadece_maliyet, 0),
+                    "SENARYO_A_TASARRUF": round(sozlesme_sadece_tasarruf, 0),
                     "YILLIK_AKILLI_MALIYET": round(yillik_akilli_maliyet, 0),
                     "YILLIK_NET_TASARRUF": round(yillik_net_tasarruf, 0),
                     "STRATEJI_ONERISI": strateji_onerisi,
@@ -2738,11 +2787,19 @@ with sekme_simulator:
         )
 
         toplam_spot_tl = float(df_sim_sonuc["YILLIK_SPOT_MALIYET"].sum())
+        toplam_senaryo_a_tl = float(df_sim_sonuc["SENARYO_A_MALIYET"].sum())
+        toplam_senaryo_a_tasarruf_tl = float(df_sim_sonuc["SENARYO_A_TASARRUF"].sum())
+        senaryo_a_yuzde = (
+            (toplam_senaryo_a_tasarruf_tl / toplam_spot_tl) * 100.0 if toplam_spot_tl > 0 else 0.0
+        )
+
         toplam_akilli_tl = float(df_sim_sonuc["YILLIK_AKILLI_MALIYET"].sum())
         toplam_net_tasarruf_tl = float(df_sim_sonuc["YILLIK_NET_TASARRUF"].sum())
         toplam_tasarruf_yuzde = (
             (toplam_net_tasarruf_tl / toplam_spot_tl) * 100.0 if toplam_spot_tl > 0 else 0.0
         )
+        senaryo_b_ekstra_kazanc = toplam_net_tasarruf_tl - toplam_senaryo_a_tasarruf_tl
+
         sube_basi_yillik_kazanc = (
             toplam_net_tasarruf_tl / float(sube_sayisi) if sube_sayisi > 0 else 0.0
         )
@@ -2808,7 +2865,7 @@ with sekme_simulator:
 
         st.markdown("#### 📋 Yıllık Satın Alma ve Tasarruf Planı Sonuç Tablosu")
         st.dataframe(
-            df_sim_sonuc.rename(
+            df_sim_sonuc.drop(columns=["SENARYO_A_MALIYET", "SENARYO_A_TASARRUF"], errors="ignore").rename(
                 columns={
                     "MAL_ADI": "Ürün Adı",
                     "BIRIM": "Birim",
@@ -2828,6 +2885,93 @@ with sekme_simulator:
             hide_index=True,
         )
 
+        st.divider()
+
+        # ---------------------------------------------------------------------
+        # 4.5 SENARYO KARŞILAŞTIRMASI: SENARYO A vs. SENARYO B
+        # ---------------------------------------------------------------------
+        st.markdown("#### ⚖️ Yönetim Karar Alternatifleri: Senaryo A vs. Senaryo B")
+        st.caption(
+            f"Aynı **{sube_sayisi} şube** ve seçili sepet için iki farklı satın alma stratejisinin yıllık maliyet ve risk karşılaştırması:"
+        )
+
+        sen_col1, sen_col2 = st.columns(2, gap="large")
+        with sen_col1:
+            st.markdown(
+                f"""
+                <div class="signal-card" style="border-top:5px solid #CA8A04; padding:18px 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-weight:800; font-size:1.05rem; color:#854D0E;">🟡 Senaryo A: Güvenli Sözleşme Stratejisi</span>
+                        <span style="background:#FEF9C3; color:#854D0E; padding:3px 9px; border-radius:8px; font-size:0.78rem; font-weight:700;">Düşük Risk • %0 Fire</span>
+                    </div>
+                    <div style="color:#475569; font-size:0.88rem; margin-bottom:12px;">
+                        Hiç fiziksel stoklama yapılmaz; tüm ürünlerde mevsimsel dip fiyatlar baz alınarak tedarikçilerle <b>Sabit Fiyatlı Sözleşme</b> imzalanır.
+                    </div>
+                    <div style="font-size:0.95rem; color:#1E293B; line-height:1.6;">
+                        • <b>Yıllık Maliyet:</b> {toplam_senaryo_a_tl:,.0f} ₺<br>
+                        • <b>Yıllık Net Tasarruf:</b> <span style="color:#854D0E; font-weight:800;">{toplam_senaryo_a_tasarruf_tl:,.0f} ₺ (-%{senaryo_a_yuzde:.1f})</span><br>
+                        • <b>Şube Başı Kazanç:</b> {(toplam_senaryo_a_tasarruf_tl / max(sube_sayisi, 1)):,.0f} ₺ / Yıl
+                    </div>
+                </div>
+                """.replace(",", "."),
+                unsafe_allow_html=True,
+            )
+
+        with sen_col2:
+            fark_metni = (
+                f"Senaryo A'ya göre ek +{senaryo_b_ekstra_kazanc:,.0f} ₺ kazanç".replace(",", ".")
+                if senaryo_b_ekstra_kazanc >= 0
+                else f"Senaryo A {abs(senaryo_b_ekstra_kazanc):,.0f} ₺ daha avantajlı (Fire+Depo yüksek)".replace(",", ".")
+            )
+            st.markdown(
+                f"""
+                <div class="signal-card" style="border-top:5px solid #1B7A43; padding:18px 20px; background:#F0FDF4;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-weight:800; font-size:1.05rem; color:#14532D;">🟢 Senaryo B: SNC Karma Optimizasyon</span>
+                        <span style="background:#DCFCE7; color:#166534; padding:3px 9px; border-radius:8px; font-size:0.78rem; font-weight:700;">Önerilen Strateji</span>
+                    </div>
+                    <div style="color:#334155; font-size:0.88rem; margin-bottom:12px;">
+                        Ürün bazında otomatik seçim: Dayanıklı ve yüksek avantajlı ürünlerde <b>Toplu Alım/Stok</b>, fire/depo riskli ürünlerde <b>Sabit Sözleşme</b> uygulanır.
+                    </div>
+                    <div style="font-size:0.95rem; color:#1E293B; line-height:1.6;">
+                        • <b>Yıllık Maliyet:</b> {toplam_akilli_tl:,.0f} ₺<br>
+                        • <b>Yıllık Net Tasarruf:</b> <span style="color:#15803D; font-weight:800;">{toplam_net_tasarruf_tl:,.0f} ₺ (-%{toplam_tasarruf_yuzde:.1f})</span><br>
+                        • <b>Karşılaştırma:</b> <b>{fark_metni}</b>
+                    </div>
+                </div>
+                """.replace(",", "."),
+                unsafe_allow_html=True,
+            )
+
+        # Spot vs Senaryo A vs Senaryo B Yatay Kıyaslama Grafiği
+        fig_sen = go.Figure(
+            go.Bar(
+                y=[
+                    "Senaryo B: SNC Karma (Stok + Sözleşme)",
+                    "Senaryo A: Sadece Sabit Sözleşme",
+                    "Mevcut Durum: Klasik Spot Alım",
+                ],
+                x=[toplam_akilli_tl, toplam_senaryo_a_tl, toplam_spot_tl],
+                orientation="h",
+                marker_color=["#1B7A43", "#EAB308", "#94A3B8"],
+                text=[
+                    f"{toplam_akilli_tl:,.0f} ₺ (-%{toplam_tasarruf_yuzde:.1f})".replace(",", "."),
+                    f"{toplam_senaryo_a_tl:,.0f} ₺ (-%{senaryo_a_yuzde:.1f})".replace(",", "."),
+                    f"{toplam_spot_tl:,.0f} ₺ (Baz)".replace(",", "."),
+                ],
+                textposition="outside",
+            )
+        )
+        fig_sen.update_layout(
+            height=240,
+            margin=dict(l=10, r=120, t=20, b=10),
+            xaxis_title=f"Yıllık Toplam Sepet Maliyeti ({sube_sayisi} Şube - TL)",
+            xaxis=dict(range=[0, max(toplam_spot_tl, 1.0) * 1.24]),
+            plot_bgcolor="#FFFFFF",
+            paper_bgcolor="#FFFFFF",
+        )
+        st.plotly_chart(fig_sen, use_container_width=True)
+
         # ---------------------------------------------------------------------
         # 5. TASARIMLI EXCEL (.XLSX) İNDİRME BUTONU (OPENPYXL)
         # ---------------------------------------------------------------------
@@ -2841,6 +2985,8 @@ with sekme_simulator:
                 toplam_akilli=toplam_akilli_tl,
                 toplam_net_tasarruf=toplam_net_tasarruf_tl,
                 toplam_tasarruf_yuzde=toplam_tasarruf_yuzde,
+                senaryo_a_maliyet=toplam_senaryo_a_tl,
+                senaryo_a_tasarruf=toplam_senaryo_a_tasarruf_tl,
             )
             st.download_button(
                 label="📊 Satın Alma ve Tasarruf Planını İndir (.xlsx — Kurumsal Excel)",
