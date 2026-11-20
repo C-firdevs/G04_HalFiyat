@@ -590,6 +590,92 @@ def _reel_degisim_ve_ajanda_hazirla(df_oz: pd.DataFrame, df_karar: pd.DataFrame)
 
 
 @st.cache_data(show_spinner=False)
+def _uc_altin_oneri_hesapla(df_oz: pd.DataFrame, df_karar: pd.DataFrame) -> dict:
+    """Yönetime 3 Altın Öneri kartı için mevcut verilerden şampiyon ürünleri hesaplar."""
+    sonuc = {
+        "sozlesme_urun": "-",
+        "sozlesme_makas_pct": 0.0,
+        "sozlesme_oynaklik": 0.0,
+        "sozlesme_koruma_pct": 0.0,
+        "stok_urun": "-",
+        "stok_fark_pct": 0.0,
+        "stok_en_ucuz_ay": "-",
+        "stok_en_pahali_ay": "-",
+        "spot_urun": "-",
+        "spot_oynaklik": 0.0,
+        "spot_ort_reel": 0.0,
+    }
+
+    oynak_col = (
+        "REEL_OYNAKLIK_30"
+        if "REEL_OYNAKLIK_30" in df_oz.columns
+        else ("REEL_OYNAKLIK_7" if "REEL_OYNAKLIK_7" in df_oz.columns else None)
+    )
+
+    if not df_oz.empty and oynak_col and "MAL_ADI" in df_oz.columns:
+        gec = df_oz.dropna(subset=["MAL_ADI", oynak_col]).copy()
+        if {"ASGARI_UCRET", "AZAMI_UCRET", "ORTALAMA_UCRET"}.issubset(gec.columns):
+            gec["MAKAS_PCT"] = np.where(
+                (gec["ORTALAMA_UCRET"] > 0) & (gec["AZAMI_UCRET"] >= gec["ASGARI_UCRET"]),
+                ((gec["AZAMI_UCRET"] - gec["ASGARI_UCRET"]) / gec["ORTALAMA_UCRET"]) * 100.0,
+                np.nan,
+            )
+        else:
+            gec["MAKAS_PCT"] = 0.0
+
+        ozet = (
+            gec.groupby("MAL_ADI", as_index=False)
+            .agg(
+                ORT_OYNAKLIK=(oynak_col, "mean"),
+                ORT_MAKAS=("MAKAS_PCT", "mean"),
+                ORT_REEL=("REEL_ORTALAMA_UCRET", "mean"),
+            )
+            .dropna(subset=["ORT_OYNAKLIK"])
+        )
+        if not ozet.empty:
+            # 1) Sözleşmeli Alım Şampiyonu: Oynaklık + Min-Max makası bileşik skoru en yüksek ürün
+            o_norm = ozet["ORT_OYNAKLIK"] / max(float(ozet["ORT_OYNAKLIK"].max()), 1e-6)
+            m_norm = ozet["ORT_MAKAS"].fillna(0.0) / max(float(ozet["ORT_MAKAS"].fillna(0.0).max()), 1e-6)
+            ozet["BILEŞIK_RISK"] = 0.55 * o_norm + 0.45 * m_norm
+            sampiyon_soz = ozet.sort_values("BILEŞIK_RISK", ascending=False).iloc[0]
+            soz_ad = str(sampiyon_soz["MAL_ADI"])
+            soz_makas = _guvenli_sayi(sampiyon_soz["ORT_MAKAS"], 0.0)
+            soz_oyn = _guvenli_sayi(sampiyon_soz["ORT_OYNAKLIK"], 0.0)
+
+            # Tahmini yıllık koruma oranı: karar desteğindeki mevsimsel avantajın %65'i veya makasın yarısı
+            koruma_pct = max(soz_makas * 0.45, 12.0)
+            if not df_karar.empty and soz_ad in df_karar["MAL_ADI"].values:
+                ks = df_karar[df_karar["MAL_ADI"] == soz_ad].iloc[0]
+                y_ort = _guvenli_sayi(ks.get("YILLIK_REEL_ORT", 0.0), 0.0)
+                e_ucu = _guvenli_sayi(ks.get("EN_UCUZ_REEL", 0.0), 0.0)
+                if y_ort > 0 and e_ucu > 0:
+                    koruma_pct = max(koruma_pct, ((y_ort - e_ucu) / y_ort) * 100.0 * 0.75)
+
+            sonuc["sozlesme_urun"] = soz_ad
+            sonuc["sozlesme_makas_pct"] = round(soz_makas, 1)
+            sonuc["sozlesme_oynaklik"] = round(soz_oyn, 2)
+            sonuc["sozlesme_koruma_pct"] = round(min(koruma_pct, 65.0), 1)
+
+            # 3) Düşük Riskli Spot Alım Ürünü: Oynaklığı en düşük ürün
+            sampiyon_spot = ozet.sort_values("ORT_OYNAKLIK", ascending=True).iloc[0]
+            sonuc["spot_urun"] = str(sampiyon_spot["MAL_ADI"])
+            sonuc["spot_oynaklik"] = round(_guvenli_sayi(sampiyon_spot["ORT_OYNAKLIK"], 0.0), 2)
+            sonuc["spot_ort_reel"] = round(_guvenli_sayi(sampiyon_spot["ORT_REEL"], 0.0), 2)
+
+    # 2) Mevsimsel Stoklama Şampiyonu: En ucuz ay ile en pahalı ay arasındaki reel fiyat farkı (%) en yüksek ürün
+    if not df_karar.empty and {"MAL_ADI", "FARK_YUZDE"}.issubset(df_karar.columns):
+        k_temiz = df_karar.dropna(subset=["MAL_ADI", "FARK_YUZDE"]).sort_values("FARK_YUZDE", ascending=False)
+        if not k_temiz.empty:
+            sampiyon_stok = k_temiz.iloc[0]
+            sonuc["stok_urun"] = str(sampiyon_stok["MAL_ADI"])
+            sonuc["stok_fark_pct"] = round(_guvenli_sayi(sampiyon_stok["FARK_YUZDE"], 0.0), 1)
+            sonuc["stok_en_ucuz_ay"] = str(sampiyon_stok.get("EN_UCUZ_AY", "-"))
+            sonuc["stok_en_pahali_ay"] = str(sampiyon_stok.get("EN_PAHALI_AY", "-"))
+
+    return sonuc
+
+
+@st.cache_data(show_spinner=False)
 def _kraljic_ve_makas_ozeti_hazirla(df_kaynak: pd.DataFrame, oynak_kolon: str):
     """Büyük veri üzerinde Kraljic matrisi ve Pazarlık Makası özetlerini önbellekli hesaplar."""
     kraljic_df = pd.DataFrame()
@@ -738,7 +824,7 @@ st.markdown(
     <div class="snc-hero" translate="no">
         <div>
             <div class="snc-hero-title">🌿 SNC | Akıllı Satın Alma Platformu</div>
-            <div class="snc-hero-sub">İzmir Hal Fiyatları (2006–2025) &amp; TÜFE Bazlı Reel Karar Destek Sistemi</div>
+            <div class="snc-hero-sub">İzmir Hal Fiyatları (2006–2025) &amp; TCMB EVDS TÜFE Bazlı Reel Karar Destek Sistemi</div>
         </div>
         <div class="snc-hero-pill">🏪 {aktif_sube_sayisi} Aktif Şube • Odak: {secili_odak_urun}</div>
     </div>
@@ -1511,7 +1597,6 @@ with sekme_analiz:
             df_gun["GUN_NO"] = pd.to_datetime(df_gun["TARIH"], errors="coerce").dt.dayofweek
             df_gun = df_gun[df_gun["GUN_NO"].isin(gun_haritasi.keys())].copy()
             df_gun["GUN_ADI"] = df_gun["GUN_NO"].map(gun_haritasi)
-
             gun_ozet = (
                 df_gun.groupby("GUN_ADI", as_index=False)
                 .agg(
@@ -3198,6 +3283,7 @@ with sekme_simulator:
                     "SUBE_AYLIK_KG": float(varsayilan_kg_haritasi.get(u_ad, 200.0)),
                 }
             )
+
         df_editor_girdi = pd.DataFrame(editor_satirlari)
 
         st.markdown("#### ✏️ Aylık Tüketim Miktarı Giriş Tablosu (Şube Başı)")
@@ -3419,28 +3505,50 @@ with sekme_simulator:
         st.divider()
 
         # ---------------------------------------------------------------------
-        # 4.5 SENARYO KARŞILAŞTIRMASI: SENARYO A vs. SENARYO B
+        # 4.5 SENARYO KARŞILAŞTIRMASI: SENARYO A vs. SENARYO B (DİNAMİK ROZET)
         # ---------------------------------------------------------------------
         st.markdown("#### ⚖️ Yönetim Karar Alternatifleri: Senaryo A vs. Senaryo B")
         st.caption(
             f"Aynı **{sube_sayisi} şube** ve seçili sepet için iki farklı satın alma stratejisinin yıllık maliyet ve risk karşılaştırması:"
         )
 
+        # Dinamik karar: Hangi senaryo daha yüksek net tasarruf sağlıyorsa yeşil "Önerilen Strateji" rozeti onda görünür
+        senaryo_a_kazandi = toplam_senaryo_a_tasarruf_tl > toplam_net_tasarruf_tl
+        kazanan_fark_tl = abs(toplam_net_tasarruf_tl - toplam_senaryo_a_tasarruf_tl)
+
+        # Senaryo A görsel stilleri
+        a_border = "#1B7A43" if senaryo_a_kazandi else "#CA8A04"
+        a_bg = "#F0FDF4" if senaryo_a_kazandi else "#FFFFFF"
+        a_title_color = "#14532D" if senaryo_a_kazandi else "#854D0E"
+        a_badge_bg = "#DCFCE7" if senaryo_a_kazandi else "#FEF9C3"
+        a_badge_color = "#166534" if senaryo_a_kazandi else "#854D0E"
+        a_badge_text = "✅ Önerilen Strateji" if senaryo_a_kazandi else "Düşük Risk • %0 Zayi"
+        a_icon = "🟢" if senaryo_a_kazandi else "🟡"
+
+        # Senaryo B görsel stilleri
+        b_border = "#1B7A43" if not senaryo_a_kazandi else "#CA8A04"
+        b_bg = "#F0FDF4" if not senaryo_a_kazandi else "#FFFFFF"
+        b_title_color = "#14532D" if not senaryo_a_kazandi else "#854D0E"
+        b_badge_bg = "#DCFCE7" if not senaryo_a_kazandi else "#FEF9C3"
+        b_badge_color = "#166534" if not senaryo_a_kazandi else "#854D0E"
+        b_badge_text = "✅ Önerilen Strateji" if not senaryo_a_kazandi else "Alternatif Karma Plan"
+        b_icon = "🟢" if not senaryo_a_kazandi else "🟡"
+
         sen_col1, sen_col2 = st.columns(2, gap="large")
         with sen_col1:
             st.markdown(
                 f"""
-                <div class="signal-card" translate="no" style="border-top:5px solid #CA8A04; padding:18px 20px;">
+                <div class="signal-card" translate="no" style="border-top:5px solid {a_border}; padding:18px 20px; background:{a_bg};">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span style="font-weight:800; font-size:1.02rem; color:#854D0E;">🟡 Senaryo A: Güvenli Sözleşme Stratejisi</span>
-                        <span style="background:#FEF9C3; color:#854D0E; padding:3px 9px; border-radius:8px; font-size:0.78rem; font-weight:700;">Düşük Risk • %0 Zayi</span>
+                        <span style="font-weight:800; font-size:1.02rem; color:{a_title_color};">{a_icon} Senaryo A: Güvenli Sözleşme Stratejisi</span>
+                        <span style="background:{a_badge_bg}; color:{a_badge_color}; padding:3px 9px; border-radius:8px; font-size:0.78rem; font-weight:700;">{a_badge_text}</span>
                     </div>
                     <div style="color:#475569; font-size:0.86rem; margin-bottom:12px;">
                         Hiç fiziksel stoklama yapılmaz; tüm ürünlerde mevsimsel dip fiyatlar baz alınarak tedarikçilerle <b>Sabit Fiyatlı Sözleşme</b> imzalanır.
                     </div>
                     <div style="font-size:0.93rem; color:#1E293B; line-height:1.6;">
                         • <b>Yıllık Maliyet:</b> {toplam_senaryo_a_tl:,.0f} ₺<br>
-                        • <b>Yıllık Net Tasarruf:</b> <span style="color:#854D0E; font-weight:800;">{toplam_senaryo_a_tasarruf_tl:,.0f} ₺ (-%{senaryo_a_yuzde:.1f})</span><br>
+                        • <b>Yıllık Net Tasarruf:</b> <span style="color:{a_title_color}; font-weight:800;">{toplam_senaryo_a_tasarruf_tl:,.0f} ₺ (-%{senaryo_a_yuzde:.1f})</span><br>
                         • <b>Şube Başı Kazanç:</b> {(toplam_senaryo_a_tasarruf_tl / max(sube_sayisi, 1)):,.0f} ₺ / Yıl
                     </div>
                 </div>
@@ -3450,29 +3558,48 @@ with sekme_simulator:
 
         with sen_col2:
             fark_metni = (
-                f"Senaryo A'ya göre ek +{senaryo_b_ekstra_kazanc:,.0f} ₺ kazanç".replace(",", ".")
-                if senaryo_b_ekstra_kazanc >= 0
-                else f"Senaryo A {abs(senaryo_b_ekstra_kazanc):,.0f} ₺ daha avantajlı (Zayi+Depo yüksek)".replace(",", ".")
+                f"Senaryo B'ye göre ek +{kazanan_fark_tl:,.0f} ₺ avantaj (Senaryo A önde)".replace(",", ".")
+                if senaryo_a_kazandi
+                else f"Senaryo A'ya göre ek +{kazanan_fark_tl:,.0f} ₺ net kazanç (Senaryo B önde)".replace(",", ".")
             )
             st.markdown(
                 f"""
-                <div class="signal-card" translate="no" style="border-top:5px solid #1B7A43; padding:18px 20px; background:#F0FDF4;">
+                <div class="signal-card" translate="no" style="border-top:5px solid {b_border}; padding:18px 20px; background:{b_bg};">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span style="font-weight:800; font-size:1.02rem; color:#14532D;">🟢 Senaryo B: SNC Karma Optimizasyon</span>
-                        <span style="background:#DCFCE7; color:#166534; padding:3px 9px; border-radius:8px; font-size:0.78rem; font-weight:700;">Önerilen Strateji</span>
+                        <span style="font-weight:800; font-size:1.02rem; color:{b_title_color};">{b_icon} Senaryo B: SNC Karma Optimizasyon</span>
+                        <span style="background:{b_badge_bg}; color:{b_badge_color}; padding:3px 9px; border-radius:8px; font-size:0.78rem; font-weight:700;">{b_badge_text}</span>
                     </div>
                     <div style="color:#334155; font-size:0.86rem; margin-bottom:12px;">
-                        Ürün bazında otomatik seçim: Dayanıklı ve yüksek avantajlı ürünlerde <b>Toplu Alım/Stok</b>, zayi/depo riskli ürünlerde <b>Sabit Sözleşme</b> uygulanır.
+                        Ürün bazında dinamik seçim: Dayanıklı ve yüksek avantajlı ürünlerde <b>Toplu Alım/Stok</b>, zayi/depo riskli ürünlerde <b>Sabit Sözleşme</b> uygulanır.
                     </div>
                     <div style="font-size:0.93rem; color:#1E293B; line-height:1.6;">
                         • <b>Yıllık Maliyet:</b> {toplam_akilli_tl:,.0f} ₺<br>
-                        • <b>Yıllık Net Tasarruf:</b> <span style="color:#15803D; font-weight:800;">{toplam_net_tasarruf_tl:,.0f} ₺ (-%{toplam_tasarruf_yuzde:.1f})</span><br>
+                        • <b>Yıllık Net Tasarruf:</b> <span style="color:{b_title_color}; font-weight:800;">{toplam_net_tasarruf_tl:,.0f} ₺ (-%{toplam_tasarruf_yuzde:.1f})</span><br>
                         • <b>Karşılaştırma:</b> <b>{fark_metni}</b>
                     </div>
                 </div>
                 """.replace(",", "."),
                 unsafe_allow_html=True,
             )
+
+        # Çelişkiyi Ortadan Kaldıran Tek Cümlelik Akıllı İş Gerekçesi
+        if senaryo_a_kazandi:
+            gerekce_metni = (
+                f"💡 <b>Neden Bu Öneri?</b> Seçilen ürünlerde zayi/bozulma (<b>%{fire_orani:.1f}</b>) ve soğuk depo (<b>%{depo_orani:.1f}</b>) "
+                f"maliyetleri fiziksel stoklamanın kârını aşındırdığı için en ucuz dönem bazlı sabit fiyatlı tedarikçi sözleşmesi "
+                f"(<b>Senaryo A</b>) hem net tasarrufu maksimize etmekte hem de raf ömrü kısa ürünlerde sıfır zayi riski sunmaktadır."
+            )
+        else:
+            gerekce_metni = (
+                f"💡 <b>Neden Bu Öneri?</b> Seçilen ürünlerde mevsimsel fiyat makası yüksek olduğu için <b>%{fire_orani:.1f}</b> zayi/bozulma ve "
+                f"<b>%{depo_orani:.1f}</b> soğuk depo maliyetine rağmen ürün bazlı karma alım stratejisi (<b>Senaryo B</b>) "
+                f"net kârı maksimize etmektedir; raf ömrü kısa kalemlerde ise sistem otomatik olarak sabit fiyatlı tedarikçi sözleşmesini tercih etmektedir."
+            )
+
+        st.markdown(
+            f'<div class="insight-note" style="margin-top:12px;">{gerekce_metni}</div>',
+            unsafe_allow_html=True,
+        )
 
         # Spot vs Senaryo A vs Senaryo B Yatay Kıyaslama Grafiği
         fig_sen = go.Figure(
@@ -3484,7 +3611,11 @@ with sekme_simulator:
                 ],
                 x=[toplam_akilli_tl, toplam_senaryo_a_tl, toplam_spot_tl],
                 orientation="h",
-                marker_color=["#1B7A43", "#EAB308", "#94A3B8"],
+                marker_color=[
+                    "#1B7A43" if not senaryo_a_kazandi else "#EAB308",
+                    "#1B7A43" if senaryo_a_kazandi else "#EAB308",
+                    "#94A3B8",
+                ],
                 text=[
                     f"{toplam_akilli_tl:,.0f} ₺ (-%{toplam_tasarruf_yuzde:.1f})".replace(",", "."),
                     f"{toplam_senaryo_a_tl:,.0f} ₺ (-%{senaryo_a_yuzde:.1f})".replace(",", "."),
@@ -3496,12 +3627,74 @@ with sekme_simulator:
         fig_sen.update_layout(
             height=240,
             margin=dict(l=10, r=120, t=20, b=10),
-            xaxis_title=f"Yıllık Toplam Sepet Maliyeti ({sube_sayisi} Şube - TL)",
+            xaxis_title=f"Yıllık Toplam Sepet Maliyeti ({sube_sayisi} Şube - ₺)",
             xaxis=dict(range=[0, max(toplam_spot_tl, 1.0) * 1.24]),
             plot_bgcolor="#FFFFFF",
             paper_bgcolor="#FFFFFF",
         )
         st.plotly_chart(fig_sen, use_container_width=True)
+
+        # ---------------------------------------------------------------------
+        # 4.6 YÖNETİME 3 ALTIN ÖNERİ ÖZET KARTLARI (VERİDEN OTOMATİK HESAPLANIR)
+        # ---------------------------------------------------------------------
+        st.divider()
+        st.markdown("#### 🏆 Yönetime 3 Altın Öneri (20 Yıllık Veri Seti Şampiyonları)")
+        st.caption(
+            "Tüm 25 ürünlük veri setinden otomatik hesaplanan en kritik 3 satın alma aksiyonu:"
+        )
+
+        altin = _uc_altin_oneri_hesapla(df_ozellikli, df_karar_destegi)
+        ao1, ao2, ao3 = st.columns(3, gap="medium")
+
+        with ao1:
+            st.markdown(
+                f"""
+                <div class="signal-card" style="border-top:5px solid #DC2626; min-height:152px;">
+                    <div class="signal-card-title">1. Sözleşmeli Alım Şampiyonu</div>
+                    <div class="signal-card-status" style="color:#B91C1C;">🛡️ {altin['sozlesme_urun']}</div>
+                    <div class="signal-card-sub">
+                        <b>Neden?</b> Fiyat oynaklığı (<b>{altin['sozlesme_oynaklik']:.2f}</b>) ve gün içi taban–tavan makası
+                        (<b>%{altin['sozlesme_makas_pct']:.1f}</b>) en riskli ürün.<br>
+                        <b>Aksiyon:</b> Sabit fiyatlı sözleşme ile yıllık tahmini <b>%{altin['sozlesme_koruma_pct']:.1f}</b> maliyet koruması sağlanır.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with ao2:
+            st.markdown(
+                f"""
+                <div class="signal-card" style="border-top:5px solid #1B7A43; min-height:152px;">
+                    <div class="signal-card-title">2. Mevsimsel Stoklama Şampiyonu</div>
+                    <div class="signal-card-status" style="color:#15803D;">📦 {altin['stok_urun']}</div>
+                    <div class="signal-card-sub">
+                        <b>Neden?</b> En ucuz ay (<b>{altin['stok_en_ucuz_ay']}</b>) ile en pahalı ay (<b>{altin['stok_en_pahali_ay']}</b>)
+                        arasındaki reel fiyat farkı <b>+%{altin['stok_fark_pct']:.1f}</b>.<br>
+                        <b>Aksiyon:</b> <b>{altin['stok_en_ucuz_ay']}</b> ayında toplu alım veya dip fiyat kilitleme yapılmalı.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with ao3:
+            st.markdown(
+                f"""
+                <div class="signal-card" style="border-top:5px solid #3B82F6; min-height:152px;">
+                    <div class="signal-card-title">3. Düşük Riskli Spot Alım Ürünü</div>
+                    <div class="signal-card-status" style="color:#1D4ED8;">✅ {altin['spot_urun']}</div>
+                    <div class="signal-card-sub">
+                        <b>Neden?</b> 30 günlük ortalama oynaklığı yalnızca <b>{altin['spot_oynaklik']:.2f}</b>
+                        (ortalama reel: <b>{altin['spot_ort_reel']:.2f} ₺</b>) ile en istikrarlı ürün.<br>
+                        <b>Aksiyon:</b> Depo/stok maliyeti yaratmadan günlük veya haftalık rutin spot alımla güvenle tedarik edilebilir.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
 
         # ---------------------------------------------------------------------
         # 5. TASARIMLI EXCEL (.XLSX) İNDİRME BUTONU (OPENPYXL)
