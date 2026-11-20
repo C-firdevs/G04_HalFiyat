@@ -1,4 +1,6 @@
-# 🌿 G04_HalFiyat — SNC | Akıllı Satın Alma (İzmir Hal Fiyatları Karar Destek Sistemi)
+# 🌿 SNC | Akıllı Satın Alma (G04_HalFiyat)
+
+🌐 **Canlı Uygulama Linki:** `[YAYIN_SONRASI_EKLENECEK]`
 
 **Mersin Üniversitesi • Yönetim Bilişim Sistemleri • Yapay Zekâ Dersi Dönem Projesi (2026–2027 Güz)**
 
