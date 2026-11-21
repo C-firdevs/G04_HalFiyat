@@ -970,8 +970,16 @@ MODEL_DON, MODEL_DON_AKTIF = don_modeli_yukle()
 
 
 # -----------------------------------------------------------------------------
-# 2. SOL MENÜ (SIDEBAR)
+# 2. SOL MENÜ (SIDEBAR) VE SAYFA DURUMU SENKRONİZASYONU
 # -----------------------------------------------------------------------------
+_qp_sayfa = st.query_params.get("sayfa", "")
+if isinstance(_qp_sayfa, list):
+    _qp_sayfa = _qp_sayfa[0] if _qp_sayfa else ""
+if _qp_sayfa in ("anasayfa", "paneller"):
+    st.session_state["aktif_gorunum"] = _qp_sayfa
+elif "aktif_gorunum" not in st.session_state:
+    st.session_state["aktif_gorunum"] = "anasayfa"
+
 with st.sidebar:
     if "aktif_gorunum" not in st.session_state:
         st.session_state["aktif_gorunum"] = "anasayfa"
@@ -1002,10 +1010,12 @@ with st.sidebar:
     if st.session_state["aktif_gorunum"] == "anasayfa":
         if st.button("BAŞLA — Panellere Geç", type="primary", use_container_width=True, key="sb_basla_btn"):
             st.session_state["aktif_gorunum"] = "paneller"
+            st.query_params["sayfa"] = "paneller"
             st.rerun()
     else:
         if st.button("Anasayfaya Dön", use_container_width=True, key="sb_anasayfa_btn"):
             st.session_state["aktif_gorunum"] = "anasayfa"
+            st.query_params["sayfa"] = "anasayfa"
             st.rerun()
     st.divider()
 
@@ -1097,13 +1107,13 @@ if st.session_state["aktif_gorunum"] == "anasayfa":
 <span class="pulse-dot" aria-hidden="true"></span>
 {aktif_sube_sayisi} Şube • 25 Ürün
 </span>
-<button type="button" class="btn-header-cta" data-start-action="">
+<a href="?sayfa=paneller" target="_self" class="btn-header-cta" data-start-action="" style="text-decoration:none; color:#072613;">
 <span>Panellere Geç</span>
 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 <path d="M5 12h14"></path>
 <path d="m12 5 7 7-7 7"></path>
 </svg>
-</button>
+</a>
 </div>
 </div>
 </header>
@@ -1126,7 +1136,7 @@ Hangi ürünü, <span class="highlight">ne zaman ve hangi fiyattan</span> almal�
 20 yıllık İzmir Büyükşehir Belediyesi Hal Fiyatları ve TCMB TÜFE enflasyon verilerini yapay zekâ modelleriyle birleştirerek çok şubeli sebze ve meyve tedarik kararlarınızı optimize eder.
 </p>
 <div class="hero-cta-row">
-<button type="button" class="btn-start-primary" data-start-action="">
+<a href="?sayfa=paneller" target="_self" class="btn-start-primary" data-start-action="" style="text-decoration:none; color:#ffffff;">
 <span>BAŞLA — Karar Destek Panellerine Geç</span>
 <span class="btn-arrow" aria-hidden="true">
 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
@@ -1134,7 +1144,7 @@ Hangi ürünü, <span class="highlight">ne zaman ve hangi fiyattan</span> almal�
 <path d="m12 5 7 7-7 7"></path>
 </svg>
 </span>
-</button>
+</a>
 <a class="btn-secondary" href="#paneller">
 <span>6 Paneli İncele</span>
 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1381,10 +1391,10 @@ BAŞLA butonuna tıkladığınızda doğrudan erişebileceğiniz 6 uzman karar d
 <span class="panel-tag">AI Performans</span>
 </div>
 </div>
-<button type="button" class="panel-action" data-start-action="">
+<a href="?sayfa=paneller" target="_self" class="panel-action" data-start-action="" style="text-decoration:none; color:#166e37;">
 <span>Panele Geç</span>
 <span aria-hidden="true">→</span>
-</button>
+</a>
 </article>
 <article class="panel-card" data-category="analiz">
 <div>
@@ -1407,10 +1417,10 @@ BAŞLA butonuna tıkladığınızda doğrudan erişebileceğiniz 6 uzman karar d
 <span class="panel-tag">Sözleşme Takvimi</span>
 </div>
 </div>
-<button type="button" class="panel-action" data-start-action="">
+<a href="?sayfa=paneller" target="_self" class="panel-action" data-start-action="" style="text-decoration:none; color:#166e37;">
 <span>Panele Geç</span>
 <span aria-hidden="true">→</span>
-</button>
+</a>
 </article>
 <article class="panel-card" data-category="karar">
 <div>
@@ -1432,10 +1442,10 @@ BAŞLA butonuna tıkladığınızda doğrudan erişebileceğiniz 6 uzman karar d
 <span class="panel-tag">1 Yıl Backtest</span>
 </div>
 </div>
-<button type="button" class="panel-action" data-start-action="">
+<a href="?sayfa=paneller" target="_self" class="panel-action" data-start-action="" style="text-decoration:none; color:#166e37;">
 <span>Panele Geç</span>
 <span aria-hidden="true">→</span>
-</button>
+</a>
 </article>
 <article class="panel-card" data-category="karar">
 <div>
@@ -1462,10 +1472,10 @@ BAŞLA butonuna tıkladığınızda doğrudan erişebileceğiniz 6 uzman karar d
 <span class="panel-tag">SHAP Analizi</span>
 </div>
 </div>
-<button type="button" class="panel-action" data-start-action="">
+<a href="?sayfa=paneller" target="_self" class="panel-action" data-start-action="" style="text-decoration:none; color:#166e37;">
 <span>Panele Geç</span>
 <span aria-hidden="true">→</span>
-</button>
+</a>
 </article>
 <article class="panel-card" data-category="simulasyon">
 <div>
@@ -1485,10 +1495,10 @@ BAŞLA butonuna tıkladığınızda doğrudan erişebileceğiniz 6 uzman karar d
 <span class="panel-tag">Excel (.xlsx)</span>
 </div>
 </div>
-<button type="button" class="panel-action" data-start-action="">
+<a href="?sayfa=paneller" target="_self" class="panel-action" data-start-action="" style="text-decoration:none; color:#166e37;">
 <span>Panele Geç</span>
 <span aria-hidden="true">→</span>
-</button>
+</a>
 </article>
 <article class="panel-card" data-category="simulasyon">
 <div>
@@ -1510,10 +1520,10 @@ BAŞLA butonuna tıkladığınızda doğrudan erişebileceğiniz 6 uzman karar d
 <span class="panel-tag">Mevsimsel İkame</span>
 </div>
 </div>
-<button type="button" class="panel-action" data-start-action="">
+<a href="?sayfa=paneller" target="_self" class="panel-action" data-start-action="" style="text-decoration:none; color:#166e37;">
 <span>Panele Geç</span>
 <span aria-hidden="true">→</span>
-</button>
+</a>
 </article>
 </div>
 </section>
@@ -1528,13 +1538,13 @@ BAŞLA butonuna tıkladığınızda doğrudan erişebileceğiniz 6 uzman karar d
 <p>6 uzman panelini ve canlı yapay zekâ fiyat tahminlerini tek tıkla açın.</p>
 </div>
 </div>
-<button type="button" class="btn-footer-start" data-start-action="">
+<a href="?sayfa=paneller" target="_self" class="btn-footer-start" data-start-action="" style="text-decoration:none; color:#072613;">
 <span>BAŞLA — Panelleri Aç</span>
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 <path d="M5 12h14"></path>
 <path d="m12 5 7 7-7 7"></path>
 </svg>
-</button>
+</a>
 </div>
 </section>
 <div class="snc-qr-floating" title="Canlı Streamlit Uygulaması QR Kodu">
@@ -1546,6 +1556,12 @@ BAŞLA butonuna tıkladığınızda doğrudan erişebileceğiniz 6 uzman karar d
 """,
         unsafe_allow_html=True,
     )
+
+    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+    if st.button("BAŞLA — Karar Destek Panellerine Geç →", type="primary", use_container_width=True, key="main_basla_btn"):
+        st.session_state["aktif_gorunum"] = "paneller"
+        st.query_params["sayfa"] = "paneller"
+        st.rerun()
 
     components.html(
         """
@@ -1595,17 +1611,24 @@ BAŞLA butonuna tıkladığınızda doğrudan erişebileceğiniz 6 uzman karar d
             };
 
             function triggerStreamlitStart() {
-                const buttons = Array.from(doc.querySelectorAll('button'));
-                const sbBtn = buttons.find(b => b.innerText && b.innerText.includes('BAŞLA'));
-                if (sbBtn) sbBtn.click();
+                const stButtons = Array.from(
+                    doc.querySelectorAll('[data-testid="stBaseButton-primary"], [data-testid="stBaseButton-secondary"], [data-testid="stButton"] button')
+                );
+                const sbBtn = stButtons.find(b => b.innerText && b.innerText.includes('BAŞLA'));
+                if (sbBtn) {
+                    sbBtn.click();
+                    return true;
+                }
+                return false;
             }
 
             doc.querySelectorAll('[data-start-action], .panel-action').forEach(btn => {
                 if (!btn.dataset.boundStart) {
                     btn.dataset.boundStart = "1";
                     btn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        triggerStreamlitStart();
+                        if (triggerStreamlitStart()) {
+                            e.preventDefault();
+                        }
                     });
                 }
             });
@@ -1681,7 +1704,10 @@ st.markdown(
 <div class="snc-hero-sub">İzmir Hal Fiyatları ve TÜFE Bazlı Reel Karar Destek Sistemi</div>
 </div>
 </div>
+<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+<a href="?sayfa=anasayfa" target="_self" style="background:#FFFFFF; color:#14532D; border:1px solid #BBF7D0; border-radius:999px; padding:6px 12px; font-size:0.80rem; font-weight:700; text-decoration:none; white-space:nowrap;">← Anasayfa</a>
 <div class="snc-hero-pill">{aktif_sube_sayisi} Aktif Şube • Odak: {secili_odak_urun}</div>
+</div>
 </div>
 """,
     unsafe_allow_html=True,
