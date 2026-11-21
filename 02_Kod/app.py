@@ -14,9 +14,10 @@ import streamlit.components.v1 as components
 # -----------------------------------------------------------------------------
 # 0. SAYFA YAPILANDIRMASI VE ÖZEL CSS
 # -----------------------------------------------------------------------------
+_SAYFA_LOGO_YOLU = Path(__file__).resolve().parent / "snc_logo.png"
 st.set_page_config(
-    page_title="SNC | Akıllı Satın Alma",
-    page_icon="🌿",
+    page_title="Akıllı Satın Alma",
+    page_icon=str(_SAYFA_LOGO_YOLU) if _SAYFA_LOGO_YOLU.exists() else None,
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -27,6 +28,17 @@ components.html(
     <script>
     try {
         const doc = window.parent.document;
+            try {{
+                const loc = window.parent.location;
+                if (loc && loc.hostname && loc.hostname.endsWith('.streamlit.app')) {{
+                    const liveUrl = loc.origin + loc.pathname;
+                    const qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&color=072613&bgcolor=ffffff&margin=4&data=' + encodeURIComponent(liveUrl);
+                    const hQr = doc.getElementById('sncHeaderQrImg');
+                    const fQr = doc.getElementById('sncFloatingQrImg');
+                    if (hQr) hQr.src = qrSrc;
+                    if (fQr) fQr.src = qrSrc;
+                }}
+            }} catch (e) {{}}
         doc.documentElement.setAttribute("translate", "no");
         doc.documentElement.setAttribute("lang", "tr");
         doc.documentElement.classList.add("notranslate");
@@ -365,12 +377,17 @@ def _mal_turu_standartlastir(seri: pd.Series) -> pd.Series:
 
 
 @st.cache_data(show_spinner="Veri tabloları yükleniyor...")
-def verileri_yukle(surum: int = 2) -> dict:
+def verileri_yukle(surum: int = 3) -> dict:
     """Tüm CSV dosyalarını '01_Veri/' altından okur; dosya yoksa güvenli yedek üretir."""
     veri = {}
 
+    ana_veri_yolu = (
+        "01_Veri/hal_reel_don_ozellikli.csv"
+        if _dosya_yolu_coz("01_Veri/hal_reel_don_ozellikli.csv").exists()
+        else "01_Veri/hal_reel_ozellikli.csv"
+    )
     dosya_listesi = {
-        "hal_reel_ozellikli": ("01_Veri/hal_reel_ozellikli.csv", ["TARIH"]),
+        "hal_reel_ozellikli": (ana_veri_yolu, ["TARIH"]),
         "ilk_25_aylik_reel_fiyat": ("01_Veri/ilk_25_aylik_reel_fiyat.csv", None),
         "ilk_25_reel_karar_destegi": ("01_Veri/ilk_25_reel_karar_destegi.csv", None),
         "ilk_25_reel_ozet": ("01_Veri/ilk_25_reel_ozet.csv", None),
@@ -443,6 +460,9 @@ def verileri_yukle(surum: int = 2) -> dict:
                         "ARALIK_1_AY_ALT",
                         "ARALIK_1_AY_UST",
                         "DEGISIM_1_AY_YUZDE",
+                        "IZMIR_MIN_SICAKLIK_C",
+                        "DON_VAR_MI",
+                        "HAFIF_DON_RISKI",
                     ],
                 )
                 veri[anahtar] = df
@@ -919,8 +939,21 @@ def aylik_modeli_yukle():
     return None, False
 
 
+@st.cache_resource(show_spinner=False)
+def don_modeli_yukle():
+    """03_Model/model_don_ozellikli.joblib (15 Özellikli İklim & Don Modeli) varsa yükler."""
+    model_yolu = _dosya_yolu_coz("03_Model/model_don_ozellikli.joblib")
+    if os.path.exists(model_yolu):
+        try:
+            model = joblib.load(model_yolu)
+            return model, True
+        except Exception:
+            return None, False
+    return None, False
+
+
 # Verileri ve modelleri yükle
-VERILER = verileri_yukle(2)
+VERILER = verileri_yukle(3)
 df_ozellikli = VERILER["hal_reel_ozellikli"]
 df_aylik_reel = VERILER["ilk_25_aylik_reel_fiyat"]
 df_karar_destegi = VERILER["ilk_25_reel_karar_destegi"]
@@ -933,6 +966,7 @@ df_gelecek_tahminler = VERILER["gelecek_hafta_ve_ay_tahminleri"]
 
 MODEL, MODEL_AKTIF, MODEL_DURUM_METNI = modeli_yukle()
 MODEL_AYLIK, MODEL_AYLIK_AKTIF = aylik_modeli_yukle()
+MODEL_DON, MODEL_DON_AKTIF = don_modeli_yukle()
 
 
 # -----------------------------------------------------------------------------
@@ -1032,7 +1066,7 @@ with st.sidebar:
 
 
 # -----------------------------------------------------------------------------
-# 3. ANASAYFA (KARŞILAMA EKRANI) VEYA 6 KARAR DESTEK PANELİ
+# 3. ANASAYFA (ÖRNEK TASARIM BİREBİR) VEYA 6 KARAR DESTEK PANELİ
 # -----------------------------------------------------------------------------
 if "aktif_gorunum" not in st.session_state:
     st.session_state["aktif_gorunum"] = "anasayfa"
@@ -1040,163 +1074,612 @@ if "aktif_gorunum" not in st.session_state:
 if st.session_state["aktif_gorunum"] == "anasayfa":
     st.markdown(
         f"""
-<div class="snc-hero" translate="no" style="padding:26px 30px; margin-bottom:16px;">
+<style>:root {{ --green-950: #072613; --green-900: #0b3d1e; --green-800: #11552b; --green-700: #166e37; --green-600: #1d8a45; --leaf-500: #66b817; --leaf-400: #7dd126; --mint-100: #e8f6ec; --mint-50: #f3faf5; --bg: #f6faf7; --surface: #ffffff; --border: #d9e8dd; --border-strong: #b9d7c2; --ink: #0d2115; --ink-muted: #4b6355; --ink-soft: #6c8476; --shadow-sm: 0 2px 8px rgba(11, 61, 30, 0.05); --shadow-md: 0 10px 30px rgba(11, 61, 30, 0.08); --shadow-lg: 0 18px 45px rgba(11, 61, 30, 0.14); --radius-sm: 10px; --radius-md: 16px; --radius-lg: 22px; --radius-pill: 999px; --max-w: 1200px; }} .snc-landing-wrap {{ margin: 0; font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif; background-color: var(--bg); color: var(--ink); line-height: 1.55; -webkit-font-smoothing: antialiased; border-radius: 18px; border: 1px solid var(--border); overflow: hidden; }} .snc-landing-wrap *, .snc-landing-wrap *::before, .snc-landing-wrap *::after {{ box-sizing: border-box; }} .site-header {{ position: relative; z-index: 10; background: linear-gradient(110deg, var(--green-950) 0%, var(--green-900) 48%, var(--green-800) 100%); border-bottom: 1px solid rgba(125, 209, 38, 0.28); box-shadow: 0 8px 28px rgba(7, 38, 19, 0.22); }} .header-inner {{ max-inline-size: var(--max-w); margin-inline: auto; padding-block: 0.75rem; padding-inline: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; }} .brand {{ display: flex; align-items: center; gap: 0.9rem; text-decoration: none; color: #ffffff; min-inline-size: 0; }} .brand-logo-wrap {{ background: #ffffff; padding: 0.34rem 0.65rem; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(102, 184, 23, 0.2); flex-shrink: 0; transition: transform 180ms ease-out; }} .brand:hover .brand-logo-wrap {{ transform: translateY(-1px); }} .brand-logo-wrap img {{ display: block; height: 36px; width: auto; object-fit: contain; }} .brand-text {{ display: flex; flex-direction: column; gap: 0.12rem; }} .brand-title {{ font-size: 1.02rem; font-weight: 700; letter-spacing: -0.01em; color: #ffffff; display: flex; align-items: center; gap: 0.45rem; }} .brand-subtitle {{ font-size: 0.74rem; font-weight: 500; color: rgba(232, 246, 236, 0.84); letter-spacing: 0.01em; }} .header-actions {{ display: flex; align-items: center; gap: 0.75rem; }} .header-meta-pill {{ display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.36rem 0.78rem; border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.09); border: 1px solid rgba(255, 255, 255, 0.16); color: #e8f6ec; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }} .pulse-dot {{ width: 7px; height: 7px; border-radius: 50%; background: var(--leaf-400); box-shadow: 0 0 0 3px rgba(125, 209, 38, 0.25); }} .btn-header-cta {{ display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.52rem 1.05rem; border: none; border-radius: var(--radius-pill); background: linear-gradient(135deg, var(--leaf-500), var(--leaf-400)); color: var(--green-950); font-size: 0.84rem; font-weight: 700; cursor: pointer; text-decoration: none; box-shadow: 0 4px 14px rgba(102, 184, 23, 0.32); transition: transform 180ms ease-out, box-shadow 180ms ease-out, filter 180ms ease-out; }} .btn-header-cta:hover {{ transform: translateY(-2px); box-shadow: 0 8px 22px rgba(125, 209, 38, 0.45); filter: brightness(1.05); }} .hero {{ position: relative; padding-block: 2.5rem 2.2rem; padding-inline: 1.5rem; background: radial-gradient(ellipse 65% 55% at 15% 0%, rgba(102, 184, 23, 0.12), transparent 65%), radial-gradient(ellipse 55% 50% at 90% 10%, rgba(22, 110, 55, 0.11), transparent 65%), linear-gradient(180deg, #eff8f2 0%, var(--bg) 100%); border-bottom: 1px solid var(--border); }} .hero-inner {{ max-inline-size: var(--max-w); margin-inline: auto; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 2.2rem; align-items: center; }} .eyebrow {{ display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.34rem 0.85rem; border-radius: var(--radius-pill); background: #ffffff; border: 1px solid var(--border-strong); color: var(--green-800); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; box-shadow: var(--shadow-sm); margin-block-end: 1.1rem; }} .hero h1 {{ margin: 0 0 1rem; font-size: clamp(1.9rem, 3.1vw, 2.65rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.028em; color: var(--green-950); }} .hero h1 .highlight {{ background: linear-gradient(120deg, var(--green-700) 0%, var(--leaf-500) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }} .hero-desc {{ margin: 0 0 1.65rem; font-size: 1rem; color: var(--ink-muted); max-inline-size: 56ch; }} .hero-cta-row {{ display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem; margin-block-end: 1.8rem; }} .btn-start-primary {{ position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 0.75rem; padding: 0.92rem 1.75rem; border: 1px solid rgba(125, 209, 38, 0.45); border-radius: 14px; background: linear-gradient(135deg, var(--green-900) 0%, var(--green-700) 55%, #1d8a45 100%); color: #ffffff; font-size: 0.96rem; font-weight: 700; letter-spacing: 0.01em; cursor: pointer; box-shadow: 0 10px 26px rgba(17, 85, 43, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22); transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease; }} .btn-start-primary:hover {{ transform: translateY(-3px); border-color: var(--leaf-400); box-shadow: 0 16px 34px rgba(22, 110, 55, 0.38), 0 0 0 4px rgba(102, 184, 23, 0.16); }} .btn-start-primary .btn-arrow {{ display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: rgba(125, 209, 38, 0.22); }} .btn-secondary {{ display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.9rem 1.3rem; border-radius: 14px; border: 1px solid var(--border-strong); background: #ffffff; color: var(--green-900) !important; font-size: 0.9rem; font-weight: 600; text-decoration: none !important; cursor: pointer; }} .hero-trust {{ display: flex; flex-wrap: wrap; gap: 1.5rem; padding-block-start: 1.15rem; border-top: 1px solid var(--border); }} .trust-item {{ display: flex; flex-direction: column; }} .trust-val {{ font-size: 1.15rem; font-weight: 800; color: var(--green-900); }} .trust-lbl {{ font-size: 0.76rem; color: var(--ink-soft); font-weight: 500; }} .preview-card {{ background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.3rem; box-shadow: var(--shadow-lg); position: relative; overflow: hidden; }} .preview-card::before {{ content: ""; position: absolute; inset-block-start: 0; inset-inline: 0; height: 4px; background: linear-gradient(90deg, var(--green-800), var(--leaf-500)); }} .preview-top {{ display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-block-end: 1rem; }} .preview-label {{ font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--green-700); display: flex; align-items: center; gap: 0.4rem; }} .product-tabs {{ display: inline-flex; background: var(--mint-50); border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 3px; gap: 2px; }} .product-tab {{ border: none; background: transparent; color: var(--ink-muted); font-size: 0.76rem; font-weight: 600; padding: 0.3rem 0.7rem; border-radius: var(--radius-pill); cursor: pointer; }} .product-tab[aria-pressed="true"] {{ background: var(--green-800); color: #ffffff; box-shadow: 0 2px 6px rgba(17, 85, 43, 0.25); }} .signal-header {{ display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-block-end: 1rem; }} .signal-price-wrap .product-name {{ font-size: 0.8rem; color: var(--ink-soft); font-weight: 600; }} .signal-price {{ font-size: 1.7rem; font-weight: 800; color: var(--green-950); line-height: 1.15; }} .signal-price span {{ font-size: 0.85rem; font-weight: 600; color: var(--ink-soft); }} .decision-badge {{ display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.42rem 0.85rem; border-radius: var(--radius-pill); font-size: 0.78rem; font-weight: 700; }} .decision-buy {{ background: #e3f7e8; color: #0e602c; border: 1px solid #a9e0b8; }} .decision-normal {{ background: #eef6ff; color: #17528c; border: 1px solid #b9d7f5; }} .decision-wait {{ background: #fff4e5; color: #9a4a00; border: 1px solid #f7cf99; }} .chart-box {{ background: linear-gradient(180deg, var(--mint-50) 0%, #ffffff 100%); border: 1px solid var(--border); border-radius: 14px; padding: 0.85rem 0.9rem 0.65rem; margin-block-end: 1rem; }} .chart-meta {{ display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--ink-soft); margin-block-end: 0.4rem; font-weight: 600; }} .chart-svg {{ width: 100%; height: 108px; display: block; }} .hal-band {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }} .band-cell {{ background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.7rem; }} .band-cell span {{ display: block; font-size: 0.69rem; color: var(--ink-soft); font-weight: 600; text-transform: uppercase; }} .band-cell strong {{ font-size: 0.92rem; color: var(--green-950); }} .section {{ max-inline-size: var(--max-w); margin-inline: auto; padding-block: 2.3rem; padding-inline: 1.5rem; }} .section-head {{ display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-block-end: 1.5rem; }} .section-kicker {{ font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--green-700); margin-block-end: 0.3rem; }} .section-title {{ margin: 0; font-size: clamp(1.4rem, 2.1vw, 1.75rem); font-weight: 800; color: var(--green-950); }} .section-sub {{ margin: 0.3rem 0 0; color: var(--ink-muted); font-size: 0.93rem; max-inline-size: 56ch; }} .bento-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.15rem; }} .bento-card {{ background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.35rem; display: flex; flex-direction: column; justify-content: space-between; gap: 1.1rem; box-shadow: var(--shadow-sm); }} .bento-head {{ display: flex; align-items: flex-start; gap: 0.95rem; }} .icon-badge {{ width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, var(--mint-100), #d8f1e0); color: var(--green-800); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid rgba(22, 110, 55, 0.14); }} .bento-card h3 {{ margin: 0 0 0.3rem; font-size: 1.04rem; font-weight: 700; color: var(--green-950); }} .bento-card p {{ margin: 0; font-size: 0.87rem; color: var(--ink-muted); }} .micro-visual {{ background: var(--mint-50); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem 0.9rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }} .pill-row {{ display: flex; flex-wrap: wrap; gap: 0.45rem; }} .mini-chip {{ font-size: 0.73rem; font-weight: 700; padding: 0.26rem 0.6rem; border-radius: var(--radius-pill); background: #ffffff; border: 1px solid var(--border); color: var(--green-900); }} .mini-chip.green {{ background: var(--green-800); border-color: var(--green-800); color: #ffffff; }} .mini-chip.leaf {{ background: #ebf8dc; border-color: #bfe495; color: #2f6106; }} .scale-bar-wrap {{ flex: 1; min-inline-size: 170px; }} .scale-track {{ height: 8px; border-radius: 999px; background: linear-gradient(90deg, #2ca54e 0%, #9ad138 50%, #e69d24 100%); position: relative; margin-block: 0.35rem; }} .scale-marker {{ position: absolute; top: 50%; left: 34%; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: #ffffff; border: 3px solid var(--green-900); }} .scale-labels {{ display: flex; justify-content: space-between; font-size: 0.69rem; font-weight: 600; color: var(--ink-soft); }} .kpi-band {{ background: linear-gradient(135deg, var(--green-950) 0%, var(--green-900) 60%, var(--green-800) 100%); border-radius: var(--radius-lg); padding: 1.45rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; box-shadow: var(--shadow-lg); color: #ffffff; }} .kpi-item {{ background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 1.05rem 1.1rem; }} .kpi-kicker {{ font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(232, 246, 236, 0.72); font-weight: 600; }} .kpi-value {{ font-size: 1.4rem; font-weight: 800; margin: 0.25rem 0 0.35rem; color: #ffffff; }} .kpi-tag {{ display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.74rem; font-weight: 600; color: var(--leaf-400); }} .filter-pills {{ display: flex; flex-wrap: wrap; gap: 0.4rem; }} .filter-pill {{ border: 1px solid var(--border-strong); background: #ffffff; color: var(--ink-muted); font-size: 0.8rem; font-weight: 600; padding: 0.42rem 0.9rem; border-radius: var(--radius-pill); cursor: pointer; }} .filter-pill[aria-pressed="true"] {{ background: var(--green-800); border-color: var(--green-800); color: #ffffff; }} .panels-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.15rem; }} .panel-card {{ position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.35rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.95rem; box-shadow: var(--shadow-sm); overflow: hidden; }} .panel-card::before {{ content: ""; position: absolute; inset-block-start: 0; inset-inline: 0; height: 3.5px; background: linear-gradient(90deg, var(--green-800), var(--leaf-500)); }} .panel-card.hidden-card {{ display: none; }} .panel-top {{ display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }} .panel-num {{ font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; color: var(--green-800); background: var(--mint-100); padding: 0.26rem 0.62rem; border-radius: var(--radius-pill); }} .panel-icon {{ width: 36px; height: 36px; border-radius: 10px; background: var(--mint-50); border: 1px solid var(--border); color: var(--green-800); display: inline-flex; align-items: center; justify-content: center; }} .panel-card h3 {{ margin: 0.65rem 0 0.35rem; font-size: 1.06rem; font-weight: 700; color: var(--green-950); }} .panel-card p {{ margin: 0; font-size: 0.85rem; color: var(--ink-muted); line-height: 1.5; }} .panel-tags {{ display: flex; flex-wrap: wrap; gap: 0.4rem; margin-block-start: 0.8rem; }} .panel-tag {{ font-size: 0.72rem; font-weight: 600; color: var(--green-900); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.2rem 0.52rem; }} .panel-action {{ display: inline-flex; align-items: center; gap: 0.35rem; align-self: flex-start; border: none; background: transparent; padding: 0.25rem 0; color: var(--green-700); font-size: 0.83rem; font-weight: 700; cursor: pointer; }} .footer-cta-wrap {{ max-inline-size: var(--max-w); margin-inline: auto; padding: 0 1.5rem 2.2rem; }} .footer-cta {{ background: linear-gradient(125deg, var(--green-950) 0%, var(--green-900) 58%, var(--green-800) 100%); border-radius: var(--radius-lg); padding: 1.75rem 2rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem; border: 1px solid rgba(125, 209, 38, 0.28); box-shadow: var(--shadow-lg); color: #ffffff; }} .footer-cta-left {{ display: flex; align-items: center; gap: 1.15rem; }} .footer-cta h2 {{ margin: 0 0 0.25rem; font-size: 1.3rem; font-weight: 800; color: #ffffff; }} .footer-cta p {{ margin: 0; font-size: 0.88rem; color: rgba(232, 246, 236, 0.82); }} .btn-footer-start {{ display: inline-flex; align-items: center; gap: 0.65rem; padding: 0.85rem 1.65rem; border: none; border-radius: 14px; background: linear-gradient(135deg, var(--leaf-500) 0%, var(--leaf-400) 100%); color: var(--green-950); font-size: 0.94rem; font-weight: 800; cursor: pointer; box-shadow: 0 10px 24px rgba(102, 184, 23, 0.34); }} @media (max-width: 980px) {{ .hero-inner {{ grid-template-columns: 1fr; }} .kpi-band {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} .panels-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }} .snc-qr-corner {{ display: inline-flex; align-items: center; gap: 0.65rem; background: #ffffff; border: 1.5px solid #b9d7c2; border-radius: 13px; padding: 0.35rem 0.65rem; box-shadow: 0 4px 14px rgba(7, 38, 19, 0.20); }} .snc-qr-corner img {{ width: 54px; height: 54px; border-radius: 7px; border: 1px solid #d9e8dd; display: block; background: #ffffff; }} .snc-qr-meta {{ display: flex; flex-direction: column; gap: 0.08rem; text-align: left; line-height: 1.25; }} .snc-qr-title {{ font-size: 0.70rem; font-weight: 800; color: #0b3d1e; text-transform: uppercase; letter-spacing: 0.04em; }} .snc-qr-sub {{ font-size: 0.66rem; font-weight: 600; color: #166e37; }} .snc-qr-floating {{ position: fixed; right: 22px; bottom: 22px; z-index: 99; background: #ffffff; border: 2px solid #166e37; border-radius: 16px; padding: 10px 12px; box-shadow: 0 14px 34px rgba(7, 38, 19, 0.22); text-align: center; width: 138px; }} .snc-qr-floating img {{ width: 108px; height: 108px; border-radius: 8px; border: 1px solid #d9e8dd; display: block; margin: 4px auto; background: #ffffff; }} .snc-qr-floating-title {{ font-size: 0.71rem; font-weight: 800; color: #072613; letter-spacing: 0.03em; }} .snc-qr-floating-sub {{ font-size: 0.66rem; font-weight: 600; color: #166e37; margin-top: 2px; }}</style><div class="snc-landing-wrap" translate="no"><header class="site-header">
+<div class="header-inner">
+<div class="brand">
+<span class="brand-logo-wrap">
+<img src="data:{_logo_mime};base64,{_logo_b64}" alt="Logo">
+</span>
+<span class="brand-text">
+<span class="brand-title">Akıllı Satın Alma</span>
+<span class="brand-subtitle">Çok Şubeli Restoran Zinciri Karar Destek Sistemi</span>
+</span>
+</div>
+<div class="header-actions">
+<div class="snc-qr-corner" title="Telefon kamerasıyla okutarak canlı uygulamayı açabilirsiniz">
+<img id="sncHeaderQrImg" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMYAAADGCAIAAAAG+WgKAAAEE0lEQVR4nO3dy43bSBRA0e7BLBiAc5j8w3EOE4B2cgDcEIVbH7XPWevn9kUJDyWyvt/v9xd0/glfCyRFzypFTFLEJEVMUsQkRUxSxCRFTFLEJEXs3ycPuv779bXP6/f/A8+6f+YnrzP2L72/8hW9zif+X1iliEmKmKSISYqYpNgx8VVT2BNjE83YfLfyM7+iqfDJK1fGPqFVipikiEmKmKSISYozJr67ebtaT95rbHfs/qwnc1k1Yb0Om9Sqz2OVIiYpYpIiJilikuLUiW+lsbls5TR32hS2klWKmKSISYqYpIhJithHTnzzPJnLnsyJ118z391ZpYhJipikiEmKmKQ4deLbO62svEru/srVDHhFe457/y+sUsQkRUxSxCRFTFKcMfHtvWPk2GQ09qvOlTt6V3TXmr2sUsQkRUxSxCRFTFLEvj/xBPZ5d26ZN7u9tl5FuJJVipikiEmKmKSISYodE9/ePayx95p3qsLY69ztvfpv3rxplSImKWKSIiYpYpJix686TztLbt6VdPN+QfpTd0XvrFLEJEVMUsQkRUxSnPGrzpW7WvP276r3Wuk6fj/RKkVMUsQkRUxSxCTFGb/q3Lvrt3fe3Lu/edqO3p1VipikiEmKmKSISYpT9/j2zlMr3/20ncrXwrvW2ONjA198xCRFTFLEJMWp5/GNzRSn3a9y77tfC680nDd9W6WISYqYpIhJipik+JwT2KsZcOzdxx6zcnp63R6z8orFea9jlSImKWKSIiYpYpJix8RX/Sawmqf27oXdVX+NvSdcPHn3J6xSxCRFTFLEJEVMUpyxx1fdG2TsMXvvAHP+VFhxOgNH8MVHTFLEJEVMUvys8/jm7fqt3B2bd2bftfUzu46PI/jiIyYpYpIiJik+53SGT5zdqqsRX8ef63fnXp0cyhcfMUkRkxQxSfE5pzPMe9a8SW2e18I5cd5f7AmrFDFJEZMUMUkRkxSn3rmlMm9S27tT+cTKvcuxxzxhlSImKWKSIiYpYpLijOv4Tps7fsaceDdv3px3CoZVipikiEmKmKSISYoz9vhWGpsTq7up7L1b5srf0zqPj0P54iMmKWKSIiYpzjidYeWvOseetfceLNe0s/bm/eXdq5ND+eIjJilikiImKc6Y+Fb+SnDsdc6/c8sTK08nrJ5llSImKWKSIiYpYpLi1Ilvpb13U1l5heBpd4lxHR8b+OJDUpzNKkVMUsQ+cuJ7MitVv5msJqNr67WQ887FuLNKEZMUMUkRkxQxSXHqxLf3zPFqmjtt3+218GpE5/FxKF98xCRFTFLEJMUZE9/eHau7lSe5f6Jr4QxolSImKWKSIiYpYpIi9v1+v+vX5K9mlSImKWKSIiYpYpIiJilikiImKWKSIiYpYpLiq/UHAowiRfAfsQ0AAAAASUVORK5CYII=" alt="Canlı Uygulama QR" />
+<div class="snc-qr-meta">
+<span class="snc-qr-title">Mobil QR</span>
+<span class="snc-qr-sub">Telefonda Aç</span>
+</div>
+</div>
+<span class="header-meta-pill">
+<span class="pulse-dot" aria-hidden="true"></span>
+{aktif_sube_sayisi} Şube • 25 Ürün
+</span>
+<button type="button" class="btn-header-cta" data-start-action="">
+<span>Panellere Geç</span>
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M5 12h14"></path>
+<path d="m12 5 7 7-7 7"></path>
+</svg>
+</button>
+</div>
+</div>
+</header>
+<main id="anasayfa">
+<section class="hero">
+<div class="hero-inner">
 <div>
-<div style="font-size:0.80rem; font-weight:700; color:#1B7A43; letter-spacing:0.6px; text-transform:uppercase; margin-bottom:4px;">
-KARAR DESTEK PLATFORMU • ANASAYFA
+<div class="eyebrow">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" aria-hidden="true">
+<path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+<path d="m2 17 10 5 10-5"></path>
+<path d="m2 12 10 5 10-5"></path>
+</svg>
+Karar Destek Platformu • 2006–2025 İzmir Hal Verisi
 </div>
-<div class="snc-hero-title" style="font-size:1.85rem;">🌿 SNC | Akıllı Satın Alma Platformu</div>
-<div class="snc-hero-sub" style="font-size:0.98rem; margin-top:6px; max-width:820px; line-height:1.5;">
-Çok şubeli restoran zincirlerinin sebze ve meyve tedarik kararlarını 20 yıllık İzmir Büyükşehir Belediyesi Hal Fiyatları (2006–2025, 131.888 kayıt)
-ve TCMB TÜFE enflasyon verileriyle optimize eden yapay zekâ destekli satın alma yönetim sistemi.
+<h1>
+Hangi ürünü, <span class="highlight">ne zaman ve hangi fiyattan</span> almalısınız?
+</h1>
+<p class="hero-desc">
+20 yıllık İzmir Büyükşehir Belediyesi Hal Fiyatları ve TCMB TÜFE enflasyon verilerini yapay zekâ modelleriyle birleştirerek çok şubeli sebze ve meyve tedarik kararlarınızı optimize eder.
+</p>
+<div class="hero-cta-row">
+<button type="button" class="btn-start-primary" data-start-action="">
+<span>BAŞLA — Karar Destek Panellerine Geç</span>
+<span class="btn-arrow" aria-hidden="true">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+<path d="M5 12h14"></path>
+<path d="m12 5 7 7-7 7"></path>
+</svg>
+</span>
+</button>
+<a class="btn-secondary" href="#paneller">
+<span>6 Paneli İncele</span>
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M12 5v14"></path>
+<path d="m19 12-7 7-7-7"></path>
+</svg>
+</a>
+</div>
+<div class="hero-trust">
+<div class="trust-item">
+<span class="trust-val">131.888</span>
+<span class="trust-lbl">İzmir Hal Fiyat Kaydı</span>
+</div>
+<div class="trust-item">
+<span class="trust-val">25 Ürün</span>
+<span class="trust-lbl">Sebze, Meyve &amp; İthal</span>
+</div>
+<div class="trust-item">
+<span class="trust-val">{aktif_sube_sayisi} Şube</span>
+<span class="trust-lbl">Dinamik Bütçe &amp; Reçete</span>
 </div>
 </div>
-<div class="snc-hero-pill">{aktif_sube_sayisi} Aktif Şube • 25 Temel Ürün</div>
 </div>
+<aside class="preview-card" aria-label="Örnek Yapay Zekâ Alım Sinyali Önizlemesi">
+<div class="preview-top">
+<span class="preview-label">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+<polyline points="16 7 22 7 22 13"></polyline>
+</svg>
+Örnek AI Alım Sinyali
+</span>
+<div class="product-tabs" role="group" aria-label="Örnek ürün seçimi">
+<button type="button" class="product-tab" data-product="ananas" aria-pressed="true">Ananas</button>
+<button type="button" class="product-tab" data-product="domates" aria-pressed="false">Domates</button>
+<button type="button" class="product-tab" data-product="biber" aria-pressed="false">Biber</button>
+</div>
+</div>
+<div class="signal-header">
+<div class="signal-price-wrap">
+<div class="product-name" id="previewName">İthal • Ananas (Adet)</div>
+<div class="signal-price" id="previewPrice">78,40 <span>₺ / ort.</span></div>
+</div>
+<span class="decision-badge decision-buy" id="previewBadge">ŞİMDİ AL • %9,2 Dip</span>
+</div>
+<div class="chart-box">
+<div class="chart-meta">
+<span id="previewHorizon">1 Haftalık &amp; 1 Aylık AI Projeksiyonu</span>
+<span id="previewDelta" style="color: #166e37;">+11,4% yükseliş riski</span>
+</div>
+<svg class="chart-svg" viewBox="0 0 360 110" preserveAspectRatio="none" aria-hidden="true">
+<defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#66b817" stop-opacity="0.32"></stop><stop offset="100%" stop-color="#66b817" stop-opacity="0.02"></stop></linearGradient></defs>
+<line x1="0" y1="28" x2="360" y2="28" stroke="#dcece1" stroke-dasharray="3 4"></line>
+<line x1="0" y1="62" x2="360" y2="62" stroke="#dcece1" stroke-dasharray="3 4"></line>
+<line x1="0" y1="94" x2="360" y2="94" stroke="#dcece1" stroke-dasharray="3 4"></line>
+<line x1="238" y1="8" x2="238" y2="104" stroke="#166e37" stroke-opacity="0.35" stroke-dasharray="4 3"></line>
+<path id="chartArea" d="M 0 74 C 45 70, 80 62, 125 68 C 165 74, 200 84, 238 82 C 278 70, 315 44, 360 28 L 360 108 L 0 108 Z" fill="url(#areaGrad)"></path>
+<path id="chartHist" d="M 0 74 C 45 70, 80 62, 125 68 C 165 74, 200 84, 238 82" fill="none" stroke="#0b3d1e" stroke-width="2.8" stroke-linecap="round"></path>
+<path id="chartPred" d="M 238 82 C 278 70, 315 44, 360 28" fill="none" stroke="#66b817" stroke-width="3" stroke-dasharray="6 4" stroke-linecap="round"></path>
+<circle id="chartDot" cx="238" cy="82" r="5" fill="#ffffff" stroke="#0b3d1e" stroke-width="3"></circle>
+</svg>
+</div>
+<div class="hal-band">
+<div class="band-cell">
+<span>Hal Taban</span>
+<strong id="bandMin">69,00 ₺</strong>
+</div>
+<div class="band-cell">
+<span>Hal Ortalama</span>
+<strong id="bandAvg">78,40 ₺</strong>
+</div>
+<div class="band-cell">
+<span>Hal Tavan</span>
+<strong id="bandMax">92,50 ₺</strong>
+</div>
+</div>
+</aside>
+</div>
+</section>
+<section class="section" id="yetenekler">
+<div class="section-head">
+<div>
+<div class="section-kicker">Platform Yetenekleri</div>
+<h2 class="section-title">Bu Sitede Neler Yapılabilir?</h2>
+<p class="section-sub">
+Satın alma yöneticileri ve mutfak şefleri için karmaşık hal verilerini anında aksiyon alınabilir kararlara dönüştüren 4 temel modül.
+</p>
+</div>
+</div>
+<div class="bento-grid">
+<article class="bento-card">
+<div class="bento-head">
+<span class="icon-badge" aria-hidden="true">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M3 3v18h18"></path>
+<path d="m19 9-5 5-4-4-3 3"></path>
+</svg>
+</span>
+<div>
+<h3>Enflasyondan Arındırılmış Reel Fiyat Analizi</h3>
+<p>20 yıllık hal fiyatlarını TCMB TÜFE ile bugünün alım gücüne indirgeyerek yanıltıcı enflasyon etkisini temizler; gerçek mevsimsel dip ve zirveleri ortaya çıkarır.</p>
+</div>
+</div>
+<div class="micro-visual">
+<div class="pill-row">
+<span class="mini-chip green">TÜFE Reel Baz</span>
+<span class="mini-chip">20 Yıllık Seri</span>
+<span class="mini-chip leaf">Mevsimsel Dip &amp; Zirve</span>
+</div>
+</div>
+</article>
+<article class="bento-card">
+<div class="bento-head">
+<span class="icon-badge" aria-hidden="true">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"></path>
+<path d="M16 14a4 4 0 0 1 4 4v2H4v-2a4 4 0 0 1 4-4"></path>
+<circle cx="12" cy="14" r="1"></circle>
+</svg>
+</span>
+<div>
+<h3>1 Haftalık &amp; 1 Aylık Yapay Zekâ Fiyat Tahmini</h3>
+<p>Eğitilmiş makine öğrenmesi modelleriyle hedef alım tarihi için fiyat projeksiyonu, güven bandı ve net tedarik kararı üretir.</p>
+</div>
+</div>
+<div class="micro-visual">
+<div class="pill-row">
+<span class="mini-chip green">Şimdi Al</span>
+<span class="mini-chip">Normal Tedarik</span>
+<span class="mini-chip leaf">Alımı Ertele</span>
+</div>
+</div>
+</article>
+<article class="bento-card">
+<div class="bento-head">
+<span class="icon-badge" aria-hidden="true">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M12 3v18"></path>
+<path d="m16 7 3 5-3 5"></path>
+<path d="m8 7-3 5 3 5"></path>
+</svg>
+</span>
+<div>
+<h3>Tedarikçi Teklif Denetimi &amp; Pazarlık Rehberi</h3>
+<p>Tedarikçiden gelen fiyat teklifini o günkü Hal Taban, Ortalama ve Tavan fiyatlarıyla kıyaslayarak kabul, pazarlık veya ret önerisi sunar.</p>
+</div>
+</div>
+<div class="micro-visual">
+<div class="scale-bar-wrap">
+<div class="scale-labels">
+<span>Taban (Kabul)</span>
+<span>Ortalama (Pazarlık)</span>
+<span>Tavan (Ret)</span>
+</div>
+<div class="scale-track" aria-hidden="true">
+<span class="scale-marker"></span>
+</div>
+</div>
+</div>
+</article>
+<article class="bento-card">
+<div class="bento-head">
+<span class="icon-badge" aria-hidden="true">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<rect x="3" y="4" width="18" height="16" rx="2"></rect>
+<path d="M3 10h18"></path>
+<path d="M9 20V10"></path>
+</svg>
+</span>
+<div>
+<h3>Çok Şubeli Bütçe, Sözleşme &amp; Reçete Simülasyonu</h3>
+<p>Şube sayısı, zayi/bozulma ve soğuk depo maliyetlerine göre yıllık sözleşme senaryolarını kıyaslar; reçetelerin 12 aylık porsiyon maliyetini hesaplar.</p>
+</div>
+</div>
+<div class="micro-visual">
+<div class="pill-row">
+<span class="mini-chip">Spot vs Akıllı Alım</span>
+<span class="mini-chip leaf">Soğuk Depo &amp; Zayi</span>
+<span class="mini-chip green">12 Aylık Reçete</span>
+</div>
+</div>
+</article>
+</div>
+</section>
+<section class="section" id="veri-altyapisi" style="padding-block: 0.4rem 1.6rem;">
+<div class="kpi-band" aria-label="Platform Veri ve Model Özeti">
+<div class="kpi-item">
+<div class="kpi-kicker">Veri Kapsamı</div>
+<div class="kpi-value">131.888 Kayıt</div>
+<div class="kpi-tag">2006–2025 İzmir Hal Verisi</div>
+</div>
+<div class="kpi-item">
+<div class="kpi-kicker">İncelenen Ürün</div>
+<div class="kpi-value">25 Temel Ürün</div>
+<div class="kpi-tag">Sebze • Meyve • İthal</div>
+</div>
+<div class="kpi-item">
+<div class="kpi-kicker">Tahmin Motoru</div>
+<div class="kpi-value">1 Hafta &amp; 1 Ay</div>
+<div class="kpi-tag">Gradient Boosting + K-Means</div>
+</div>
+<div class="kpi-item">
+<div class="kpi-kicker">Simülasyon Kapsamı</div>
+<div class="kpi-value">{aktif_sube_sayisi} Aktif Şube</div>
+<div class="kpi-tag">Dinamik Bütçe &amp; Reçete</div>
+</div>
+</div>
+</section>
+<section class="section" id="paneller">
+<div class="section-head">
+<div>
+<div class="section-kicker">Uzman Modüller</div>
+<h2 class="section-title">Karar Destek Panelleri</h2>
+<p class="section-sub">
+BAŞLA butonuna tıkladığınızda doğrudan erişebileceğiniz 6 uzman karar destek paneli.
+</p>
+</div>
+<div class="filter-pills" role="group" aria-label="Panel kategorisi filtresi">
+<button type="button" class="filter-pill" data-filter="all" aria-pressed="true">Tümü (6)</button>
+<button type="button" class="filter-pill" data-filter="analiz" aria-pressed="false">İzleme &amp; Analiz</button>
+<button type="button" class="filter-pill" data-filter="karar" aria-pressed="false">Strateji &amp; Karar</button>
+<button type="button" class="filter-pill" data-filter="simulasyon" aria-pressed="false">Simülasyon &amp; Menü</button>
+</div>
+</div>
+<div class="panels-grid">
+<article class="panel-card" data-category="analiz">
+<div>
+<div class="panel-top">
+<span class="panel-num">01 • PANEL</span>
+<span class="panel-icon" aria-hidden="true">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+<rect x="3" y="3" width="7" height="9" rx="1.5"></rect>
+<rect x="14" y="3" width="7" height="5" rx="1.5"></rect>
+<rect x="14" y="12" width="7" height="9" rx="1.5"></rect>
+<rect x="3" y="16" width="7" height="5" rx="1.5"></rect>
+</svg>
+</span>
+</div>
+<h3>📊 Panel &amp; Özet</h3>
+<p>Kısa dönem fiyat şoku uyarıları, temel piyasa göstergeleri ve tek tıkla indirilebilen Pazartesi Sabahı Yönetici Brifingi.</p>
+<div class="panel-tags">
+<span class="panel-tag">Fiyat Şoku Uyarısı</span>
+<span class="panel-tag">.pdf / .txt Brifing</span>
+<span class="panel-tag">AI Performans</span>
+</div>
+</div>
+<button type="button" class="panel-action" data-start-action="">
+<span>Panele Geç</span>
+<span aria-hidden="true">→</span>
+</button>
+</article>
+<article class="panel-card" data-category="analiz">
+<div>
+<div class="panel-top">
+<span class="panel-num">02 • PANEL</span>
+<span class="panel-icon" aria-hidden="true">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+<rect x="3" y="4" width="18" height="18" rx="2"></rect>
+<line x1="16" y1="2" x2="16" y2="6"></line>
+<line x1="8" y1="2" x2="8" y2="6"></line>
+<line x1="3" y1="10" x2="21" y2="10"></line>
+</svg>
+</span>
+</div>
+<h3>📅 Analiz &amp; Zamanlama</h3>
+<p>20 yıllık nominal ve reel fiyat serileri, 25×12 en ucuz aylar ısı haritası, haftanın en ucuz hal günü ve 12 aylık sözleşme takvimi.</p>
+<div class="panel-tags">
+<span class="panel-tag">25×12 Isı Haritası</span>
+<span class="panel-tag">Kruskal-Wallis</span>
+<span class="panel-tag">Sözleşme Takvimi</span>
+</div>
+</div>
+<button type="button" class="panel-action" data-start-action="">
+<span>Panele Geç</span>
+<span aria-hidden="true">→</span>
+</button>
+</article>
+<article class="panel-card" data-category="karar">
+<div>
+<div class="panel-top">
+<span class="panel-num">03 • PANEL</span>
+<span class="panel-icon" aria-hidden="true">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+<circle cx="12" cy="12" r="9"></circle>
+<circle cx="12" cy="12" r="5"></circle>
+<circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
+</svg>
+</span>
+</div>
+<h3>🎯 Strateji &amp; Risk</h3>
+<p>Kraljic Satın Alma Matrisi ile 4 stratejik bölge ayrımı, günlük hal taban–tavan pazarlık makası ve 1 yıllık strateji backtest doğrulaması.</p>
+<div class="panel-tags">
+<span class="panel-tag">Kraljic Matrisi</span>
+<span class="panel-tag">Pazarlık Makası</span>
+<span class="panel-tag">1 Yıl Backtest</span>
+</div>
+</div>
+<button type="button" class="panel-action" data-start-action="">
+<span>Panele Geç</span>
+<span aria-hidden="true">→</span>
+</button>
+</article>
+<article class="panel-card" data-category="karar">
+<div>
+<div class="panel-top">
+<span class="panel-num">04 • PANEL</span>
+<span class="panel-icon" aria-hidden="true">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+<path d="M12 2v4"></path>
+<path d="m16.2 7.8 2.9-2.9"></path>
+<path d="M18 12h4"></path>
+<path d="m16.2 16.2 2.9 2.9"></path>
+<path d="M12 18v4"></path>
+<path d="m4.9 19.1 2.9-2.9"></path>
+<path d="M2 12h4"></path>
+<path d="m4.9 4.9 2.9 2.9"></path>
+</svg>
+</span>
+</div>
+<h3>🤖 Karar Ekranı</h3>
+<p>4 zaman dilimli alım sinyalleri, 1 haftalık &amp; 1 aylık AI fiyat tahminleri, tedarikçi teklif denetimi ve SHAP açıklanabilirlik analizleri.</p>
+<div class="panel-tags">
+<span class="panel-tag">AI Fiyat Tahmini</span>
+<span class="panel-tag">Teklif Denetimi</span>
+<span class="panel-tag">SHAP Analizi</span>
+</div>
+</div>
+<button type="button" class="panel-action" data-start-action="">
+<span>Panele Geç</span>
+<span aria-hidden="true">→</span>
+</button>
+</article>
+<article class="panel-card" data-category="simulasyon">
+<div>
+<div class="panel-top">
+<span class="panel-num">05 • PANEL</span>
+<span class="panel-icon" aria-hidden="true">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+<path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2V5z"></path>
+</svg>
+</span>
+</div>
+<h3>🏪 Tasarruf Simülatörü</h3>
+<p>Şube sayısı, zayi ve soğuk depolama oranlarına göre Spot vs Akıllı Alım kıyaslaması, senaryo karar kartları ve kurumsal Excel raporu.</p>
+<div class="panel-tags">
+<span class="panel-tag">Senaryo A &amp; B</span>
+<span class="panel-tag">3 Stratejik Öneri</span>
+<span class="panel-tag">Excel (.xlsx)</span>
+</div>
+</div>
+<button type="button" class="panel-action" data-start-action="">
+<span>Panele Geç</span>
+<span aria-hidden="true">→</span>
+</button>
+</article>
+<article class="panel-card" data-category="simulasyon">
+<div>
+<div class="panel-top">
+<span class="panel-num">06 • PANEL</span>
+<span class="panel-icon" aria-hidden="true">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path>
+<path d="M7 2v20"></path>
+<path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"></path>
+</svg>
+</span>
+</div>
+<h3>🥗 Menü &amp; Reçete</h3>
+<p>Restoran reçeteleri için 12 aylık porsiyon maliyet eğrisi, maliyeti en çok artıran bileşen tespiti ve uygun fiyatlı mevsimsel ikame önerileri.</p>
+<div class="panel-tags">
+<span class="panel-tag">Porsiyon Maliyeti</span>
+<span class="panel-tag">Bileşen Analizi</span>
+<span class="panel-tag">Mevsimsel İkame</span>
+</div>
+</div>
+<button type="button" class="panel-action" data-start-action="">
+<span>Panele Geç</span>
+<span aria-hidden="true">→</span>
+</button>
+</article>
+</div>
+</section>
+<section class="footer-cta-wrap">
+<div class="footer-cta">
+<div class="footer-cta-left">
+<span class="brand-logo-wrap">
+<img src="data:{_logo_mime};base64,{_logo_b64}" alt="Logo">
+</span>
+<div>
+<h2>Karar Destek Panellerine Hazır mısınız?</h2>
+<p>6 uzman panelini ve canlı yapay zekâ fiyat tahminlerini tek tıkla açın.</p>
+</div>
+</div>
+<button type="button" class="btn-footer-start" data-start-action="">
+<span>BAŞLA — Panelleri Aç</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="M5 12h14"></path>
+<path d="m12 5 7 7-7 7"></path>
+</svg>
+</button>
+</div>
+</section>
+<div class="snc-qr-floating" title="Canlı Streamlit Uygulaması QR Kodu">
+<div class="snc-qr-floating-title">CANLI UYGULAMA QR</div>
+<img id="sncFloatingQrImg" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMYAAADGCAIAAAAG+WgKAAAEE0lEQVR4nO3dy43bSBRA0e7BLBiAc5j8w3EOE4B2cgDcEIVbH7XPWevn9kUJDyWyvt/v9xd0/glfCyRFzypFTFLEJEVMUsQkRUxSxCRFTFLEJEXs3ycPuv779bXP6/f/A8+6f+YnrzP2L72/8hW9zif+X1iliEmKmKSISYqYpNgx8VVT2BNjE83YfLfyM7+iqfDJK1fGPqFVipikiEmKmKSISYozJr67ebtaT95rbHfs/qwnc1k1Yb0Om9Sqz2OVIiYpYpIiJilikuLUiW+lsbls5TR32hS2klWKmKSISYqYpIhJithHTnzzPJnLnsyJ118z391ZpYhJipikiEmKmKQ4deLbO62svEru/srVDHhFe457/y+sUsQkRUxSxCRFTFKcMfHtvWPk2GQ09qvOlTt6V3TXmr2sUsQkRUxSxCRFTFLEvj/xBPZ5d26ZN7u9tl5FuJJVipikiEmKmKSISYodE9/ePayx95p3qsLY69ztvfpv3rxplSImKWKSIiYpYpJix686TztLbt6VdPN+QfpTd0XvrFLEJEVMUsQkRUxSnPGrzpW7WvP276r3Wuk6fj/RKkVMUsQkRUxSxCTFGb/q3Lvrt3fe3Lu/edqO3p1VipikiEmKmKSISYpT9/j2zlMr3/20ncrXwrvW2ONjA198xCRFTFLEJMWp5/GNzRSn3a9y77tfC680nDd9W6WISYqYpIhJipik+JwT2KsZcOzdxx6zcnp63R6z8orFea9jlSImKWKSIiYpYpJix8RX/Sawmqf27oXdVX+NvSdcPHn3J6xSxCRFTFLEJEVMUpyxx1fdG2TsMXvvAHP+VFhxOgNH8MVHTFLEJEVMUvys8/jm7fqt3B2bd2bftfUzu46PI/jiIyYpYpIiJik+53SGT5zdqqsRX8ef63fnXp0cyhcfMUkRkxQxSfE5pzPMe9a8SW2e18I5cd5f7AmrFDFJEZMUMUkRkxSn3rmlMm9S27tT+cTKvcuxxzxhlSImKWKSIiYpYpLijOv4Tps7fsaceDdv3px3CoZVipikiEmKmKSISYoz9vhWGpsTq7up7L1b5srf0zqPj0P54iMmKWKSIiYpzjidYeWvOseetfceLNe0s/bm/eXdq5ND+eIjJilikiImKc6Y+Fb+SnDsdc6/c8sTK08nrJ5llSImKWKSIiYpYpLi1Ilvpb13U1l5heBpd4lxHR8b+OJDUpzNKkVMUsQ+cuJ7MitVv5msJqNr67WQ887FuLNKEZMUMUkRkxQxSXHqxLf3zPFqmjtt3+218GpE5/FxKF98xCRFTFLEJMUZE9/eHau7lSe5f6Jr4QxolSImKWKSIiYpYpIi9v1+v+vX5K9mlSImKWKSIiYpYpIiJilikiImKWKSIiYpYpLiq/UHAowiRfAfsQ0AAAAASUVORK5CYII=" alt="Canlı Uygulama QR Kodu" />
+<div class="snc-qr-floating-sub">Kamerayla Okutun</div>
+</div>
+</main></div>
 """,
         unsafe_allow_html=True,
     )
 
-    # En başta doğrudan panellere geçişi sağlayan belirgin BAŞLA butonu
-    basla_col1, basla_col2, basla_col3 = st.columns([0.22, 0.56, 0.22])
-    with basla_col2:
-        if st.button("BAŞLA — Karar Destek Panellerine Geç", type="primary", use_container_width=True, key="ust_basla_btn"):
-            st.session_state["aktif_gorunum"] = "paneller"
-            st.rerun()
-
-    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-
-    # Bu Sitede Neler Yapılabilir? (Özet Bilgi ve Kapsam)
-    st.markdown("### 📌 Bu Sitede Neler Yapılabilir?")
-    st.markdown(
+    components.html(
         """
-<div class="exec-summary-card" translate="no" style="margin-bottom:18px;">
-Bu platform, restoran satın alma yöneticilerinin ve mutfak şeflerinin <b>"Hangi ürünü, ne zaman, hangi fiyattan ve hangi sözleşme modeliyle almalıyım?"</b>
-sorusuna veri ve yapay zekâ modelleriyle yanıt verir:
-<ul style="margin-top:8px; margin-bottom:4px; line-height:1.65;">
-<li><b>Enflasyondan Arındırılmış Reel Fiyat Analizi:</b> 20 yıllık hal fiyatlarını TÜFE ile bugünün alım gücüne indirgeyerek yanıltıcı enflasyon etkisini temizler, gerçek mevsimsel dip ve zirve dönemlerini gösterir.</li>
-<li><b>1 Haftalık ve 1 Aylık Yapay Zekâ Fiyat Tahmini:</b> Eğitilmiş makine öğrenmesi modelleriyle seçilen hedef alım tarihi için fiyat projeksiyonu, güven bandı ve <i>Şimdi Al / Normal Tedarik / Alımı Ertele</i> kararı üretir.</li>
-<li><b>Tedarikçi Teklif Denetimi ve Pazarlık Rehberi:</b> Tedarikçiden gelen fiyat teklifini o günkü Hal Taban, Ortalama ve Tavan fiyatlarıyla kıyaslayarak kabul, pazarlık veya ret önerisi sunar.</li>
-<li><b>Çok Şubeli Bütçe, Sözleşme ve Reçete Simülasyonu:</b> Şube sayısı, zayi/bozulma ve soğuk depo maliyetlerine göre yıllık sözleşme ve stok senaryolarını kıyaslar; restoran reçetelerinin 12 aylık porsiyon maliyetini hesaplar.</li>
-</ul>
-</div>
-""",
-        unsafe_allow_html=True,
+        <script>
+        (function() {
+            const doc = window.parent.document;
+            const URUN_VERI = {
+                ananas: {
+                    name: "İthal • Ananas (Adet)",
+                    price: "78,40 <span>₺ / ort.</span>",
+                    badge: "ŞİMDİ AL • %9,2 Dip",
+                    badgeClass: "decision-badge decision-buy",
+                    delta: "+11,4% yükseliş riski",
+                    deltaColor: "#166e37",
+                    min: "69,00 ₺", avg: "78,40 ₺", max: "92,50 ₺",
+                    area: "M 0 74 C 45 70, 80 62, 125 68 C 165 74, 200 84, 238 82 C 278 70, 315 44, 360 28 L 360 108 L 0 108 Z",
+                    hist: "M 0 74 C 45 70, 80 62, 125 68 C 165 74, 200 84, 238 82",
+                    pred: "M 238 82 C 278 70, 315 44, 360 28",
+                    dotY: "82"
+                },
+                domates: {
+                    name: "Sebze • Domates Salkım (Kg)",
+                    price: "34,20 <span>₺ / ort.</span>",
+                    badge: "NORMAL TEDARİK • Dengeli",
+                    badgeClass: "decision-badge decision-normal",
+                    delta: "+1,8% yatay seyir",
+                    deltaColor: "#17528c",
+                    min: "26,00 ₺", avg: "34,20 ₺", max: "42,00 ₺",
+                    area: "M 0 58 C 45 62, 80 55, 125 60 C 165 57, 200 61, 238 59 C 278 58, 315 55, 360 53 L 360 108 L 0 108 Z",
+                    hist: "M 0 58 C 45 62, 80 55, 125 60 C 165 57, 200 61, 238 59",
+                    pred: "M 238 59 C 278 58, 315 55, 360 53",
+                    dotY: "59"
+                },
+                biber: {
+                    name: "Sebze • Biber Sivri (Kg)",
+                    price: "52,80 <span>₺ / ort.</span>",
+                    badge: "ALIMI ERTELE • %8,4 Düşüş",
+                    badgeClass: "decision-badge decision-wait",
+                    delta: "-8,4% gevşeme beklentisi",
+                    deltaColor: "#9a4a00",
+                    min: "41,00 ₺", avg: "52,80 ₺", max: "64,00 ₺",
+                    area: "M 0 48 C 45 42, 80 38, 125 35 C 165 32, 200 30, 238 34 C 278 46, 315 62, 360 76 L 360 108 L 0 108 Z",
+                    hist: "M 0 48 C 45 42, 80 38, 125 35 C 165 32, 200 30, 238 34",
+                    pred: "M 238 34 C 278 46, 315 62, 360 76",
+                    dotY: "34"
+                }
+            };
+
+            function triggerStreamlitStart() {
+                const buttons = Array.from(doc.querySelectorAll('button'));
+                const sbBtn = buttons.find(b => b.innerText && b.innerText.includes('BAŞLA'));
+                if (sbBtn) sbBtn.click();
+            }
+
+            doc.querySelectorAll('[data-start-action], .panel-action').forEach(btn => {
+                if (!btn.dataset.boundStart) {
+                    btn.dataset.boundStart = "1";
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        triggerStreamlitStart();
+                    });
+                }
+            });
+
+            doc.querySelectorAll('.product-tab').forEach(tab => {
+                if (!tab.dataset.boundTab) {
+                    tab.dataset.boundTab = "1";
+                    tab.addEventListener('click', () => {
+                        const key = tab.getAttribute('data-product');
+                        const d = URUN_VERI[key];
+                        if (!d) return;
+                        doc.querySelectorAll('.product-tab').forEach(t => t.setAttribute('aria-pressed', t === tab ? 'true' : 'false'));
+                        const elName = doc.getElementById('previewName');
+                        const elPrice = doc.getElementById('previewPrice');
+                        const elBadge = doc.getElementById('previewBadge');
+                        const elDelta = doc.getElementById('previewDelta');
+                        const elMin = doc.getElementById('bandMin');
+                        const elAvg = doc.getElementById('bandAvg');
+                        const elMax = doc.getElementById('bandMax');
+                        const elArea = doc.getElementById('chartArea');
+                        const elHist = doc.getElementById('chartHist');
+                        const elPred = doc.getElementById('chartPred');
+                        const elDot = doc.getElementById('chartDot');
+                        if (elName) elName.textContent = d.name;
+                        if (elPrice) elPrice.innerHTML = d.price;
+                        if (elBadge) { elBadge.textContent = d.badge; elBadge.className = d.badgeClass; }
+                        if (elDelta) { elDelta.textContent = d.delta; elDelta.style.color = d.deltaColor; }
+                        if (elMin) elMin.textContent = d.min;
+                        if (elAvg) elAvg.textContent = d.avg;
+                        if (elMax) elMax.textContent = d.max;
+                        if (elArea) elArea.setAttribute('d', d.area);
+                        if (elHist) elHist.setAttribute('d', d.hist);
+                        if (elPred) elPred.setAttribute('d', d.pred);
+                        if (elDot) elDot.setAttribute('cy', d.dotY);
+                    });
+                }
+            });
+
+            doc.querySelectorAll('.filter-pill').forEach(pill => {
+                if (!pill.dataset.boundFilter) {
+                    pill.dataset.boundFilter = "1";
+                    pill.addEventListener('click', () => {
+                        const cat = pill.getAttribute('data-filter');
+                        doc.querySelectorAll('.filter-pill').forEach(p => p.setAttribute('aria-pressed', p === pill ? 'true' : 'false'));
+                        doc.querySelectorAll('.panel-card').forEach(card => {
+                            if (cat === 'all' || card.getAttribute('data-category') === cat) {
+                                card.classList.remove('hidden-card');
+                            } else {
+                                card.classList.add('hidden-card');
+                            }
+                        });
+                    });
+                }
+            });
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
     )
-
-    oz_k1, oz_k2, oz_k3, oz_k4 = st.columns(4)
-    oz_k1.metric("Veri Kapsamı", "131.888 Kayıt", "2006–2025 İzmir Hal Verisi")
-    oz_k2.metric("İncelenen Ürün", "25 Temel Ürün", "Sebze • Meyve • İthal")
-    oz_k3.metric("Tahmin Motoru", "1 Hafta & 1 Ay", "Gradient Boosting + K-Means")
-    oz_k4.metric("Simülasyon Kapsamı", f"{aktif_sube_sayisi} Aktif Şube", "Dinamik Bütçe & Reçete")
-
-    st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
-    st.markdown("### 🧭 Karar Destek Panelleri")
-    st.caption("BAŞLA butonuna tıkladığınızda aşağıdaki 6 uzmanlık paneline doğrudan erişebilirsiniz:")
-
-    p_row1_c1, p_row1_c2, p_row1_c3 = st.columns(3, gap="medium")
-    with p_row1_c1:
-        st.markdown(
-            """
-<div class="home-panel-card" translate="no">
-<div class="home-panel-step">1. PANEL</div>
-<div class="home-panel-title">📊 Panel &amp; Özet</div>
-<div class="home-panel-desc">
-Son 7 günlük fiyat oynaklığı 30 günlük ortalamayı aşan ürünler için kısa dönem fiyat şoku uyarısı, temel piyasa göstergeleri,
-tek tıkla indirilebilir Pazartesi Sabahı Yönetici Brifingi (.txt ve .pdf) ile yapay zekâ model performans özeti yer alır.
-</div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-    with p_row1_c2:
-        st.markdown(
-            """
-<div class="home-panel-card" translate="no">
-<div class="home-panel-step">2. PANEL</div>
-<div class="home-panel-title">📅 Analiz &amp; Zamanlama</div>
-<div class="home-panel-desc">
-20 yıllık nominal ve reel fiyat serileri, 25×12 en ucuz aylar ısı haritası, haftanın en ucuz hal günü (Pazartesi–Cumartesi),
-enflasyon karşılaştırması, Kruskal-Wallis istatistiksel hipotez testleri ve 12 aylık sözleşme takvimi sunulur.
-</div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-    with p_row1_c3:
-        st.markdown(
-            """
-<div class="home-panel-card" translate="no">
-<div class="home-panel-step">3. PANEL</div>
-<div class="home-panel-title">🎯 Strateji &amp; Risk</div>
-<div class="home-panel-desc">
-Ürünleri tedarik riski (oynaklık) ve maliyet etkisine göre 4 stratejik bölgeye ayıran Kraljic Satın Alma Matrisi,
-günlük hal taban–tavan pazarlık makası analizi ve geçmiş 1 yıllık alım stratejisi doğrulaması (Backtest) bulunur.
-</div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-
-    p_row2_c1, p_row2_c2, p_row2_c3 = st.columns(3, gap="medium")
-    with p_row2_c1:
-        st.markdown(
-            """
-<div class="home-panel-card" translate="no">
-<div class="home-panel-step">4. PANEL</div>
-<div class="home-panel-title">🤖 Karar Ekranı</div>
-<div class="home-panel-desc">
-4 zaman dilimli (Günlük, Haftalık, Aylık, Mevsimsel) alım sinyalleri, seçilen hedef alım tarihine göre 1 haftalık ve 1 aylık
-yapay zekâ fiyat tahminleri, tedarikçi teklif denetimi, mevsimsel küme ikameleri ve SHAP açıklanabilirlik analizleri yer alır.
-</div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-    with p_row2_c2:
-        st.markdown(
-            """
-<div class="home-panel-card" translate="no">
-<div class="home-panel-step">5. PANEL</div>
-<div class="home-panel-title">🏪 Tasarruf Simülatörü</div>
-<div class="home-panel-desc">
-Şube sayısı, zayi/bozulma ve soğuk depolama oranlarına göre yıllık Spot Alım ile Akıllı Alım karşılaştırması,
-Senaryo A ve Senaryo B karar kartları, yönetime 3 stratejik öneri ve renk kodlu kurumsal Excel (.xlsx) raporu üretilir.
-</div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-    with p_row2_c3:
-        st.markdown(
-            """
-<div class="home-panel-card" translate="no">
-<div class="home-panel-step">6. PANEL</div>
-<div class="home-panel-title">🥗 Menü &amp; Reçete</div>
-<div class="home-panel-desc">
-Restoran yemek reçeteleri veya özel oluşturulan tarifler için 12 aylık porsiyon maliyet eğrisi,
-reçete maliyetini en çok artıran bileşenin tespiti ve aynı kategorideki daha uygun fiyatlı mevsimlik ikame önerileri sunulur.
-</div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-    alt_b1, alt_b2, alt_b3 = st.columns([0.22, 0.56, 0.22])
-    with alt_b2:
-        if st.button("BAŞLA — Panelleri Aç", type="primary", use_container_width=True, key="alt_basla_btn"):
-            st.session_state["aktif_gorunum"] = "paneller"
-            st.rerun()
 
     st.stop()
 
 st.markdown(
     f"""
 <div class="snc-hero" translate="no">
+<div style="display:flex; align-items:center; gap:14px;">
+<span style="background:#FFFFFF; padding:6px 12px; border-radius:12px; border:1px solid #DCFCE7; box-shadow:0 2px 8px rgba(15,23,42,0.06); display:inline-flex; align-items:center;">
+<img src="data:{_logo_mime};base64,{_logo_b64}" alt="Logo" style="height:40px; width:auto; display:block;" />
+</span>
 <div>
-<div class="snc-hero-title">🌿 SNC | Akıllı Satın Alma Platformu</div>
+<div class="snc-hero-title">Akıllı Satın Alma Platformu</div>
 <div class="snc-hero-sub">İzmir Hal Fiyatları ve TÜFE Bazlı Reel Karar Destek Sistemi</div>
+</div>
 </div>
 <div class="snc-hero-pill">{aktif_sube_sayisi} Aktif Şube • Odak: {secili_odak_urun}</div>
 </div>
@@ -1511,7 +1994,6 @@ with sekme_panel:
             artislar: list,
             firsatlar: list,
         ) -> bytes:
-            import textwrap
             import matplotlib.pyplot as plt
             from matplotlib.patches import FancyBboxPatch
 
@@ -1520,118 +2002,99 @@ with sekme_panel:
             ax.set_xlim(0, 100)
             ax.set_ylim(0, 140)
             ax.axis("off")
-            fig.patch.set_facecolor("#F8FAFC")
+            fig.patch.set_facecolor("#FFFFFF")
 
-            # Üst Kurumsal Başlık Bandı (#1B7A43)
+            # 1. Sade Kurumsal Üst Başlık Bandı
             header_box = FancyBboxPatch(
-                (4, 122), 92, 14, boxstyle="round,pad=0.6,rounding_size=1.8",
-                facecolor="#1B7A43", edgecolor="#14532D", linewidth=1.2
+                (6, 121), 88, 13, boxstyle="round,pad=0.4,rounding_size=1.4",
+                facecolor="#14532D", edgecolor="#14532D", linewidth=1.0
             )
             ax.add_patch(header_box)
             ax.text(
-                50, 131.2, "SNC | AKILLI SATIN ALMA — PAZARTESİ SABAHI YÖNETİCİ BRİFİNGİ",
-                color="white", fontsize=13.5, fontweight="bold", ha="center", va="center"
+                50, 129.2, "AKILLI SATIN ALMA — HAFTALIK YÖNETİCİ ÖZETİ",
+                color="#FFFFFF", fontsize=13.0, fontweight="bold", ha="center", va="center"
             )
             ax.text(
-                50, 125.8,
-                f"Dönem: {ay_adi}  (Gelecek Ay: {gel_ay_adi})   |   Kapsam: {sube_say} Şubeli Restoran Zinciri   |   Tarih: {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+                50, 124.2,
+                f"Analiz Ayı: {ay_adi}   •   Gelecek Ay: {gel_ay_adi}   •   Kapsam: {sube_say} Şube   •   Tarih: {datetime.now().strftime('%d.%m.%Y')}",
                 color="#DCFCE7", fontsize=9.2, ha="center", va="center"
             )
 
-            # Özet Bilgi Şeridi
-            meta_box = FancyBboxPatch(
-                (4, 113.5), 92, 6.2, boxstyle="round,pad=0.4,rounding_size=1.2",
-                facecolor="#FFFFFF", edgecolor="#CBD5E1", linewidth=0.9
-            )
-            ax.add_patch(meta_box)
-            ax.text(
-                50, 116.6,
-                "Renk Kodu Rehberi:   [KIRMIZI] Yüksek Oynaklık / Kötü Risk     |     [SARI] Tehlikeli / Zam Uyarısı     |     [YEŞİL] İyi / Alım Fırsatı",
-                color="#334155", fontsize=8.8, fontweight="bold", ha="center", va="center"
-            )
+            def _satir_sadelestir(metin: str, max_len: int = 78) -> str:
+                temiz = str(metin).replace("Yılın En Ucuz Ayı! ", "").replace("Mevsimsel Tasarruf Potansiyeli:", "Tasarruf:")
+                temiz = temiz.replace("Beklenen Değişim:", "Değişim:").replace("Reel Ort.:", "Ort.:")
+                return temiz if len(temiz) <= max_len else temiz[: max_len - 1] + "…"
 
-            def _bolum_kutusu_ciz(y_ust, baslik, maddeler, arka_renk, kenar_renk, baslik_renk, yazi_renk, etiket):
-                satirlar = []
-                for m in (maddeler if maddeler else ["Veri bulunamadı."]):
-                    sarili = textwrap.wrap(f"• {m}", width=84)
-                    satirlar.extend(sarili)
-                kutu_yukseklik = max(24.0, 9.5 + len(satirlar) * 3.5)
-                y_alt = y_ust - kutu_yukseklik
+            def _kart_ciz(y_ust: float, baslik: str, alt_aciklama: str, maddeler: list, arka_renk: str, vurgu_renk: str, yazi_renk: str):
+                kutu_h = 31.0
+                y_alt = y_ust - kutu_h
 
+                # Ana kart gövdesi
                 kutu = FancyBboxPatch(
-                    (4, y_alt), 92, kutu_yukseklik,
-                    boxstyle="round,pad=0.5,rounding_size=1.8",
-                    facecolor=arka_renk, edgecolor=kenar_renk, linewidth=1.6
+                    (6, y_alt), 88, kutu_h,
+                    boxstyle="round,pad=0.4,rounding_size=1.4",
+                    facecolor=arka_renk, edgecolor="#E2E8F0", linewidth=1.0
                 )
                 ax.add_patch(kutu)
 
-                # Sol kalın vurgu şeridi
+                # Sol ince renk şeridi
                 serit = FancyBboxPatch(
-                    (4, y_alt), 1.8, kutu_yukseklik,
-                    boxstyle="round,pad=0.0,rounding_size=0.6",
-                    facecolor=kenar_renk, edgecolor=kenar_renk, linewidth=0.5
+                    (6, y_alt), 1.4, kutu_h,
+                    boxstyle="round,pad=0.0,rounding_size=0.4",
+                    facecolor=vurgu_renk, edgecolor=vurgu_renk, linewidth=0.5
                 )
                 ax.add_patch(serit)
 
-                # Durum rozeti (sağ üst)
-                rozet = FancyBboxPatch(
-                    (75, y_ust - 6.2), 19, 4.4,
-                    boxstyle="round,pad=0.2,rounding_size=1.0",
-                    facecolor=kenar_renk, edgecolor=kenar_renk, linewidth=0.5
-                )
-                ax.add_patch(rozet)
-                ax.text(84.5, y_ust - 4.0, etiket, color="white", fontsize=8.5, fontweight="bold", ha="center", va="center")
+                # Başlık ve kısa açıklama
+                ax.text(10.0, y_ust - 4.5, baslik, color=vurgu_renk, fontsize=11.2, fontweight="bold", ha="left", va="center")
+                ax.text(10.0, y_ust - 8.3, alt_aciklama, color="#475569", fontsize=8.8, ha="left", va="center")
 
-                ax.text(8.0, y_ust - 4.2, baslik, color=baslik_renk, fontsize=11.0, fontweight="bold", ha="left", va="center")
+                # En önemli ilk 3 madde (her biri tek, ferah satırda)
+                secili_maddeler = (maddeler[:3] if maddeler else ["Bu dönem için kayıt bulunamadı."])
+                y_cursor = y_ust - 13.8
+                for idx, m in enumerate(secili_maddeler, start=1):
+                    satir = f"{idx}.  {_satir_sadelestir(m)}"
+                    ax.text(10.5, y_cursor, satir, color=yazi_renk, fontsize=9.6, fontweight="normal", ha="left", va="center")
+                    y_cursor -= 5.4
 
-                y_cursor = y_ust - 9.5
-                for s in satirlar:
-                    ax.text(8.2, y_cursor, s, color=yazi_renk, fontsize=9.3, ha="left", va="top")
-                    y_cursor -= 3.5
-
-                return y_alt - 4.0
-
-            # 1. KIRMIZI KUTU: Kötü / En Riskli 3 Ürün
-            y_sonraki = _bolum_kutusu_ciz(
-                109.5,
-                f"1. Haftanın En Riskli (Yüksek Oynaklıklı) 3 Ürünü — {ay_adi}",
+            # Kart 1: Yüksek Oynaklık / Risk
+            _kart_ciz(
+                115.0,
+                f"1. Fiyat Oynaklığı En Yüksek 3 Ürün ({ay_adi})",
+                "Kısa vadeli fiyat dalgalanması yüksek olan, günlük spot alımda dikkat edilmesi gereken ürünler:",
                 riskler,
-                arka_renk="#FEE2E2",
-                kenar_renk="#DC2626",
-                baslik_renk="#991B1B",
+                arka_renk="#FEF2F2",
+                vurgu_renk="#B91C1C",
                 yazi_renk="#7F1D1D",
-                etiket="KÖTÜ / RİSKLİ",
             )
 
-            # 2. SARI KUTU: Tehlikeli / Gelecek Ay Fiyatı En Çok Artacak 3 Ürün
-            y_sonraki = _bolum_kutusu_ciz(
-                y_sonraki,
-                f"2. Gelecek Ay ({gel_ay_adi}) Fiyatı En Çok Artacak 3 Ürün",
+            # Kart 2: Gelecek Ay Zam Uyarısı
+            _kart_ciz(
+                79.0,
+                f"2. Gelecek Ay ({gel_ay_adi}) Fiyatı En Çok Artması Beklenen 3 Ürün",
+                "Mevsimsel geçiş nedeniyle gelecek ay birim maliyeti yükselmesi beklenen, erken tedarik önerilen ürünler:",
                 artislar,
-                arka_renk="#FEF9C3",
-                kenar_renk="#CA8A04",
-                baslik_renk="#854D0E",
-                yazi_renk="#713F12",
-                etiket="TEHLİKELİ / UYARI",
+                arka_renk="#FFFBEB",
+                vurgu_renk="#B45309",
+                yazi_renk="#78350F",
             )
 
-            # 3. YEŞİL KUTU: İyi / Fırsat Ürünleri
-            _bolum_kutusu_ciz(
-                y_sonraki,
-                f"3. {ay_adi} Ayında En Uygun Dönemdeki Fırsat Ürünleri",
+            # Kart 3: Mevsimsel Alım Fırsatları
+            _kart_ciz(
+                43.0,
+                f"3. {ay_adi} Ayında En Uygun Alım Döneminde Olan Fırsat Ürünleri",
+                "Yıllık reel ortalamasına göre bu ay en düşük fiyat seviyesinde olan, sözleşme ve toplu alıma uygun ürünler:",
                 firsatlar,
-                arka_renk="#DCFCE7",
-                kenar_renk="#16A34A",
-                baslik_renk="#166534",
+                arka_renk="#F0FDF4",
+                vurgu_renk="#15803D",
                 yazi_renk="#14532D",
-                etiket="İYİ / FIRSAT",
             )
 
-            # Alt Bilgi (Footer)
+            # Sade Alt Bilgi
             ax.text(
                 50, 5.5,
-                "SNC | Akıllı Satın Alma Karar Destek Sistemi  •  Veri Kaynağı: İzmir BB Hal Fiyatları (2006–2025) & TCMB EVDS TÜFE",
-                color="#64748B", fontsize=8.2, ha="center", va="center"
+                "Akıllı Satın Alma Karar Destek Sistemi   •   Veri Kaynağı: İzmir BB Hal Fiyatları (2006–2025) & TCMB EVDS TÜFE",
+                color="#64748B", fontsize=8.5, ha="center", va="center"
             )
 
             tampon = BytesIO()
@@ -2394,6 +2857,17 @@ En yoğun fırsat ayı <b>{en_yogun_ay_satir['AY']}</b> olup tek başına <b>{in
     df_don_model = VERILER.get("don_model_karsilastirma", pd.DataFrame())
     if os.path.exists(don_gorsel_analiz) or not df_don_haftalik.empty or not df_don_model.empty:
         with st.expander("İzmir Don Olaylarının Gecikmeli Fiyat Etkisi ve İklim Modeli", expanded=False):
+            if {"DON_VAR_MI", "REEL_ORTALAMA_UCRET", "IZMIR_MIN_SICAKLIK_C"}.issubset(df_filtreli.columns):
+                don_gun_df = df_filtreli[df_filtreli["DON_VAR_MI"] == 1]
+                normal_gun_df = df_filtreli[df_filtreli["DON_VAR_MI"] == 0]
+                don_ort_fiyat = _guvenli_sayi(don_gun_df["REEL_ORTALAMA_UCRET"].mean(), 0.0)
+                norm_ort_fiyat = _guvenli_sayi(normal_gun_df["REEL_ORTALAMA_UCRET"].mean(), 0.0)
+                don_fark_yuzde = ((don_ort_fiyat - norm_ort_fiyat) / norm_ort_fiyat * 100.0) if norm_ort_fiyat > 0 else 0.0
+                dk1, dk2, dk3 = st.columns(3)
+                dk1.metric("Don Olayı olmayan Günlerde Ort. Reel Fiyat", f"{norm_ort_fiyat:.2f} ₺", f"{len(normal_gun_df):,} Kayıt".replace(",", "."))
+                dk2.metric("Zirai Don Günlerinde (≤ 0°C) Ort. Reel Fiyat", f"{don_ort_fiyat:.2f} ₺", f"{don_fark_yuzde:+.1f}% Don Farkı")
+                dk3.metric("En Yüksek Gecikmeli Don Etkisi", "Çalı Fasulye (+%34.3)", "4. Haftada Zirve Yapar")
+                st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
             if os.path.exists(don_gorsel_analiz):
                 _, don_orta, _ = st.columns([0.08, 0.84, 0.08])
                 with don_orta:
@@ -3043,6 +3517,18 @@ with sekme_karar:
                     "için mevsimsellik girdi değerleri güncellendi."
                 )
 
+            don_senaryo_secimi = st.selectbox(
+                "İklim ve Don Senaryosu (15 Özellikli İklim Modeli):",
+                options=[
+                    "Normal Mevsim Koşulları (Don Yok • > +2°C)",
+                    "Hafif Don Riski (0°C ile +2°C Arası)",
+                    "Şiddetli Zirai Don Olayı (≤ 0°C)",
+                ],
+                index=0,
+                key="karar_don_senaryo_sec",
+                help="İzmir'de zirai don veya soğuk hava dalgası beklendiğinde 15 özellikli iklim modeli devreye girerek don olayının fiyata etkisini hesaplar.",
+            )
+
             with st.expander("⚙️ İleri Düzey Tahmin Parametrelerini Düzenle", expanded=False):
                 st.caption("Varsayılan değerler ürünün son hal kayıtlarından ve seçilen hedef tarihten otomatik doldurulur.")
                 g_c1, g_c2, g_c3 = st.columns(3)
@@ -3095,7 +3581,25 @@ with sekme_karar:
             alt_bant_hazir = None
             ust_bant_hazir = None
 
-            if MODEL_AKTIF and MODEL is not None:
+            don_aktif_mi = not don_senaryo_secimi.startswith("Normal")
+            if don_aktif_mi and MODEL_DON_AKTIF and MODEL_DON is not None:
+                try:
+                    if "Şiddetli" in don_senaryo_secimi:
+                        sim_min_sicaklik, sim_don_var, sim_hafif_don = -1.5, 1, 1
+                    else:
+                        sim_min_sicaklik, sim_don_var, sim_hafif_don = 1.0, 0, 1
+                    girdi_don_15 = dict(girdi_sozluk)
+                    girdi_don_15["IZMIR_MIN_SICAKLIK_C"] = float(sim_min_sicaklik)
+                    girdi_don_15["DON_VAR_MI"] = int(sim_don_var)
+                    girdi_don_15["HAFIF_DON_RISKI"] = int(sim_hafif_don)
+                    MODEL_SUTUNLARI_15 = MODEL_SUTUNLARI_12 + ["IZMIR_MIN_SICAKLIK_C", "DON_VAR_MI", "HAFIF_DON_RISKI"]
+                    X_tahmin_15 = pd.DataFrame([girdi_don_15])[MODEL_SUTUNLARI_15]
+                    tahmin_fiyat = round(float(MODEL_DON.predict(X_tahmin_15)[0]), 2)
+                    tahmin_kaynagi = "15 Özellikli İklim ve Don Destekli Yapay Zekâ Modeli"
+                except Exception:
+                    tahmin_fiyat = None
+
+            if tahmin_fiyat is None and MODEL_AKTIF and MODEL is not None:
                 try:
                     tahmin_fiyat = round(float(MODEL.predict(X_tahmin)[0]), 2)
                     tahmin_kaynagi = "Eğitilmiş 1 Haftalık Makine Öğrenmesi Modeli"
@@ -3167,34 +3671,29 @@ with sekme_karar:
             else:
                 st.info(f"### {karar_etiketi}\n{karar_aciklama}")
 
-            def _mini_kart(baslik: str, deger: str, alt: str, vurgu_renk: str = "#1B7A43") -> str:
-                return f"""
-<div class="signal-card" style="min-height:94px; padding:11px 12px; border-left:4px solid {vurgu_renk};">
-<div class="signal-card-title" style="font-size:0.78rem; margin-bottom:4px;">{baslik}</div>
-<div style="color:#1E293B; font-size:1.08rem; font-weight:800; line-height:1.2; margin-bottom:4px;">{deger}</div>
-<div class="signal-card-sub" style="font-size:0.75rem;">{alt}</div>
+            tahmin_vurgu = "#DC2626" if beklenen_degisim_yuzde >= 3 else ("#1B7A43" if beklenen_degisim_yuzde <= -3 else "#F59E0B")
+            st.markdown(
+                f"""
+<div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-bottom:10px;">
+<div class="signal-card" style="min-height:84px; padding:10px 11px; border-left:4px solid #64748B;">
+<div style="color:#64748B; font-size:0.74rem; font-weight:700; margin-bottom:4px; white-space:nowrap;">Bugünkü Fiyat</div>
+<div style="color:#1E293B; font-size:1.02rem; font-weight:800; white-space:nowrap; margin-bottom:3px;">{reel_girdi:.2f} TL</div>
+<div style="color:#64748B; font-size:0.72rem; white-space:nowrap;">Birim: {birim_adi}</div>
 </div>
-"""
-
-            t_m1, t_m2, t_m3 = st.columns(3)
-            t_m1.markdown(
-                _mini_kart("Bugünkü Reel Fiyat", f"{reel_girdi:.2f} TL", f"Birim: {birim_adi}", "#64748B"),
+<div class="signal-card" style="min-height:84px; padding:10px 11px; border-left:4px solid {tahmin_vurgu};">
+<div style="color:#64748B; font-size:0.74rem; font-weight:700; margin-bottom:4px; white-space:nowrap;">Haftaya Tahmin</div>
+<div style="color:#1E293B; font-size:1.02rem; font-weight:800; white-space:nowrap; margin-bottom:3px;">{tahmin_fiyat:.2f} TL</div>
+<div style="color:#64748B; font-size:0.72rem; white-space:nowrap;">{beklenen_degisim_yuzde:+.1f}% Değişim</div>
+</div>
+<div class="signal-card" style="min-height:84px; padding:10px 11px; border-left:4px solid #1B7A43;">
+<div style="color:#64748B; font-size:0.74rem; font-weight:700; margin-bottom:4px; white-space:nowrap;">Fiyat Aralığı</div>
+<div style="color:#1E293B; font-size:0.95rem; font-weight:800; white-space:nowrap; margin-bottom:3px;">{alt_bant:.1f}–{ust_bant:.1f} TL</div>
+<div style="color:#64748B; font-size:0.72rem; white-space:nowrap;">±{belirsizlik_marji:.2f} TL Marj</div>
+</div>
+</div>
+""",
                 unsafe_allow_html=True,
             )
-            t_m2.markdown(
-                _mini_kart(
-                    "Gelecek Hafta Tahmini",
-                    f"{tahmin_fiyat:.2f} TL",
-                    f"{beklenen_degisim_yuzde:+.1f}% Değişim",
-                    "#DC2626" if beklenen_degisim_yuzde >= 3 else ("#1B7A43" if beklenen_degisim_yuzde <= -3 else "#F59E0B"),
-                ),
-                unsafe_allow_html=True,
-            )
-            t_m3.markdown(
-                _mini_kart("Olası Fiyat Aralığı", f"{alt_bant:.2f} – {ust_bant:.2f} TL", f"±{belirsizlik_marji:.2f} TL Belirsizlik", "#1B7A43"),
-                unsafe_allow_html=True,
-            )
-            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
             # Görsel Tahmin Aralığı Grafiği (Bugün vs. Gelecek Hafta Alt-Beklenen-Üst)
             fig_tahmin = go.Figure()
@@ -3258,38 +3757,28 @@ with sekme_karar:
                 else round(son_ort * 1.25, 2)
             )
 
-            b_c1, b_c2, b_c3 = st.columns(3)
-            b_c1.markdown(
+            st.markdown(
                 f"""
-<div class="signal-card" style="min-height:92px; padding:11px 12px; border-left:4px solid #1B7A43;">
-<div class="signal-card-title" style="font-size:0.78rem; margin-bottom:4px;">Hal En Düşük</div>
-<div style="color:#1E293B; font-size:1.08rem; font-weight:800; line-height:1.2; margin-bottom:4px;">{son_asg:.2f} TL</div>
-<div class="signal-card-sub" style="font-size:0.75rem;">Asgari / {birim_etiket}</div>
+<div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-bottom:10px;">
+<div class="signal-card" style="min-height:84px; padding:10px 11px; border-left:4px solid #1B7A43;">
+<div style="color:#64748B; font-size:0.74rem; font-weight:700; margin-bottom:4px; white-space:nowrap;">Hal Taban</div>
+<div style="color:#1E293B; font-size:1.02rem; font-weight:800; white-space:nowrap; margin-bottom:3px;">{son_asg:.2f} TL</div>
+<div style="color:#64748B; font-size:0.72rem; white-space:nowrap;">Asgari / {birim_etiket}</div>
+</div>
+<div class="signal-card" style="min-height:84px; padding:10px 11px; border-left:4px solid #3B82F6;">
+<div style="color:#64748B; font-size:0.74rem; font-weight:700; margin-bottom:4px; white-space:nowrap;">Hal Ortalama</div>
+<div style="color:#1E293B; font-size:1.02rem; font-weight:800; white-space:nowrap; margin-bottom:3px;">{son_ort:.2f} TL</div>
+<div style="color:#64748B; font-size:0.72rem; white-space:nowrap;">Piyasa / {birim_etiket}</div>
+</div>
+<div class="signal-card" style="min-height:84px; padding:10px 11px; border-left:4px solid #F59E0B;">
+<div style="color:#64748B; font-size:0.74rem; font-weight:700; margin-bottom:4px; white-space:nowrap;">Hal Tavan</div>
+<div style="color:#1E293B; font-size:1.02rem; font-weight:800; white-space:nowrap; margin-bottom:3px;">{son_azm:.2f} TL</div>
+<div style="color:#64748B; font-size:0.72rem; white-space:nowrap;">Azami / {birim_etiket}</div>
+</div>
 </div>
 """,
                 unsafe_allow_html=True,
             )
-            b_c2.markdown(
-                f"""
-<div class="signal-card" style="min-height:92px; padding:11px 12px; border-left:4px solid #3B82F6;">
-<div class="signal-card-title" style="font-size:0.78rem; margin-bottom:4px;">Hal Ortalama</div>
-<div style="color:#1E293B; font-size:1.08rem; font-weight:800; line-height:1.2; margin-bottom:4px;">{son_ort:.2f} TL</div>
-<div class="signal-card-sub" style="font-size:0.75rem;">Piyasa / {birim_etiket}</div>
-</div>
-""",
-                unsafe_allow_html=True,
-            )
-            b_c3.markdown(
-                f"""
-<div class="signal-card" style="min-height:92px; padding:11px 12px; border-left:4px solid #F59E0B;">
-<div class="signal-card-title" style="font-size:0.78rem; margin-bottom:4px;">Hal En Yüksek</div>
-<div style="color:#1E293B; font-size:1.08rem; font-weight:800; line-height:1.2; margin-bottom:4px;">{son_azm:.2f} TL</div>
-<div class="signal-card-sub" style="font-size:0.75rem;">Azami / {birim_etiket}</div>
-</div>
-""",
-                unsafe_allow_html=True,
-            )
-            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
             tk_c1, tk_c2 = st.columns(2)
             with tk_c1:
@@ -3722,7 +4211,7 @@ def _tasarimli_excel_olustur(
     senaryo_a_maliyet: float = 0.0,
     senaryo_a_tasarruf: float = 0.0,
 ) -> bytes:
-    """openpyxl ile kurumsal tasarımlı Satin_Alma_Plani Excel (.xlsx) çıktısı üretir."""
+    """Sade, ferah ve yönetici dostu 2 sayfalı kurumsal Excel (.xlsx) raporu üretir."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
@@ -3730,111 +4219,81 @@ def _tasarimli_excel_olustur(
     wb = Workbook()
     ws = wb.active
     ws.title = "Satin_Alma_Plani"
+    ws.views.sheetView[0].showGridLines = True
 
-    # 1. Satır: Birleştirilmiş #1B7A43 Zümrüt Yeşili Ana Başlık
-    ws.merge_cells("A1:K1")
-    ws["A1"] = "SNC | Akıllı Satın Alma - Satın Alma ve Tasarruf Planı"
-    ws["A1"].font = Font(name="Calibri", size=14, bold=True, color="FFFFFF")
-    ws["A1"].fill = PatternFill(start_color="1B7A43", end_color="1B7A43", fill_type="solid")
+    # 1. Satır: Ferah Ana Başlık (8 Sütun: A1:H1)
+    ws.merge_cells("A1:H1")
+    ws["A1"] = "AKILLI SATIN ALMA — YILLIK SATIN ALMA VE TASARRUF PLANI"
+    ws["A1"].font = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
+    ws["A1"].fill = PatternFill(start_color="14532D", end_color="14532D", fill_type="solid")
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
-    ws.row_dimensions[1].height = 30
+    ws.row_dimensions[1].height = 32
 
-    # 2. Satır: Şube / Fire / Depo Parametreleri ve Tarih
-    ws.merge_cells("A2:K2")
+    # 2. Satır: Simülasyon Parametre Özeti
+    ws.merge_cells("A2:H2")
     ws["A2"] = (
-        f"Şube Sayısı: {sube_sayisi}  |  Beklenen Zayi / Bozulma Oranı: %{fire_orani:.1f}  |  "
-        f"Depolama Maliyeti: %{depo_orani:.1f}  |  "
-        f"Rapor Tarihi: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        f"Aktif Şube: {sube_sayisi}   |   Zayi / Bozulma Oranı: %{fire_orani:.1f}   |   "
+        f"Depolama Maliyeti: %{depo_orani:.1f}   |   Tarih: {datetime.now().strftime('%d.%m.%Y')}"
     )
-    ws["A2"].font = Font(name="Calibri", size=10, italic=True, bold=True, color="1E293B")
+    ws["A2"].font = Font(name="Calibri", size=10, bold=True, color="334155")
     ws["A2"].fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
     ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
-    ws.row_dimensions[2].height = 22
+    ws.row_dimensions[2].height = 24
 
-    # 4. Satır: Koyu Yeşil (#14532D) Beyaz Yazılı Tablo Başlıkları
-    basliklar = [
-        "Ürün Adı (MAL_ADI)",
-        "Birim",
-        "En Uygun Alım Ayı",
-        "En Uygun Mevsim",
-        "Şube Başı Aylık (Kg)",
-        "Zincir Yıllık Tonaj (Kg)",
-        "Güncel Birim Fiyat (TL)",
-        "Mevsimsel Avantaj (%)",
-        "Yıllık Spot Maliyet (TL)",
-        "Yıllık Akıllı Alım Maliyeti (TL)",
-        "Yıllık Net Tasarruf (TL) & Öneri",
-    ]
-    # Net tasarruf sayısal olsun diye 10. ve 11. sütunları net şekilde ayarla:
+    # 4. Satır: Sadeleştirilmiş 8 Ana Sütun Başlığı
     basliklar = [
         "Ürün Adı",
         "Birim",
-        "En Ucuz Ay",
-        "Şube Başı Aylık (Kg)",
-        "Zincir Yıllık Miktar (Kg)",
-        "Güncel Fiyat (TL)",
-        "Mevsimsel Avantaj (%)",
-        "Yıllık Spot Maliyet",
+        "En Uygun Ay",
+        "Yıllık Toplam Miktar",
+        "Yıllık Normal Maliyet",
         "Yıllık Akıllı Maliyet",
-        "Yıllık Net Tasarruf",
-        "Önerilen Satın Alma Stratejisi",
+        "Yıllık Net Kazanç",
+        "Önerilen Satın Alma Kararı",
     ]
 
     ince_kenar = Side(border_style="thin", color="CBD5E1")
     hucre_cerceve = Border(left=ince_kenar, right=ince_kenar, top=ince_kenar, bottom=ince_kenar)
-    baslik_dolgu = PatternFill(start_color="14532D", end_color="14532D", fill_type="solid")
+    baslik_dolgu = PatternFill(start_color="1B7A43", end_color="1B7A43", fill_type="solid")
     baslik_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
 
-    ws.row_dimensions[4].height = 26
+    ws.row_dimensions[4].height = 28
     for col_idx, b_metin in enumerate(basliklar, start=1):
         c = ws.cell(row=4, column=col_idx, value=b_metin)
         c.fill = baslik_dolgu
         c.font = baslik_font
-        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        c.alignment = Alignment(horizontal="center", vertical="center")
         c.border = hucre_cerceve
 
     zebra_acik = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
     zebra_koyu = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
-    veri_font = Font(name="Calibri", size=10, color="1E293B")
+    veri_font = Font(name="Calibri", size=10, color="0F172A")
+    kazanc_font = Font(name="Calibri", size=10, bold=True, color="14532D")
 
-    # Trafik Işığı Renk Kodları (İyi = Yeşil, Tehlikeli/Orta = Sarı, Kötü/Riskli = Kırmızı)
+    # Yalnızca son sütun (Önerilen Karar) için yumuşak durum renkleri
     yesil_dolgu = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
     yesil_font = Font(name="Calibri", size=10, bold=True, color="166534")
     sari_dolgu = PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid")
     sari_font = Font(name="Calibri", size=10, bold=True, color="854D0E")
-    kirmizi_dolgu = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
-    kirmizi_font = Font(name="Calibri", size=10, bold=True, color="991B1B")
 
     stok_esik_yuzde = float(fire_orani + depo_orani)
-
     baslangic_satir = 5
+
     for idx, r in sim_df.reset_index(drop=True).iterrows():
         satir_no = baslangic_satir + idx
-        ws.row_dimensions[satir_no].height = 22
+        ws.row_dimensions[satir_no].height = 24
         dolgu = zebra_acik if idx % 2 == 0 else zebra_koyu
 
         avantaj_pct = float(r["MEVSIMSEL_AVANTAJ_YUZDE"])
         net_marj_pct = avantaj_pct - stok_esik_yuzde
-
-        # Satırın durum rengini belirle:
-        # Kötü (Kırmızı): Fire+Depo >= Mevsimsel Avantaj (Fiziksel stok zararlı!)
-        # Tehlikeli (Sarı): Net avantaj dar (%0 - %10 arası)
-        # İyi (Yeşil): Net avantaj güçlü (>= %10)
-        if net_marj_pct <= 0:
-            durum_dolgu, durum_font = kirmizi_dolgu, kirmizi_font
-        elif net_marj_pct < 10.0:
-            durum_dolgu, durum_font = sari_dolgu, sari_font
-        else:
-            durum_dolgu, durum_font = yesil_dolgu, yesil_font
+        karar_dolgu = yesil_dolgu if net_marj_pct > 0 else sari_dolgu
+        karar_font = yesil_font if net_marj_pct > 0 else sari_font
 
         satir_degerleri = [
             str(r["MAL_ADI"]),
             str(r["BIRIM"]),
             str(r["EN_UCUZ_AY"]),
-            float(r["SUBE_AYLIK_KG"]),
             float(r["YILLIK_TOPLAM_KG"]),
-            float(r["GUNCEL_BIRIM_FIYAT"]),
-            avantaj_pct / 100.0,
             float(r["YILLIK_SPOT_MALIYET"]),
             float(r["YILLIK_AKILLI_MALIYET"]),
             float(r["YILLIK_NET_TASARRUF"]),
@@ -3843,35 +4302,32 @@ def _tasarimli_excel_olustur(
 
         for col_idx, val in enumerate(satir_degerleri, start=1):
             hc = ws.cell(row=satir_no, column=col_idx, value=val)
-            # 7 (Mevsimsel Avantaj %), 10 (Yıllık Net Tasarruf) ve 11 (Strateji Önerisi) kutularını durum rengiyle boya
-            if col_idx in [7, 10, 11]:
-                hc.fill = durum_dolgu
-                hc.font = durum_font
+            hc.border = hucre_cerceve
+            if col_idx == 8:
+                hc.fill = karar_dolgu
+                hc.font = karar_font
+            elif col_idx == 7:
+                hc.fill = dolgu
+                hc.font = kazanc_font
             else:
                 hc.fill = dolgu
                 hc.font = veri_font
-            hc.border = hucre_cerceve
 
-            if col_idx in [1, 11]:
+            if col_idx in [1, 8]:
                 hc.alignment = Alignment(horizontal="left", vertical="center")
             elif col_idx in [2, 3]:
                 hc.alignment = Alignment(horizontal="center", vertical="center")
             else:
                 hc.alignment = Alignment(horizontal="right", vertical="center")
 
-            # Sayı Formatları
-            if col_idx in [4, 5]:
+            if col_idx == 4:
                 hc.number_format = "#,##0"
-            elif col_idx == 6:
-                hc.number_format = '#,##0.00 "₺"'
-            elif col_idx == 7:
-                hc.number_format = "0.0%"
-            elif col_idx in [8, 9, 10]:
-                hc.number_format = '#,##0 "₺"'
+            elif col_idx in [5, 6, 7]:
+                hc.number_format = '#,##0 "TL"'
 
-    # En Altta #DCFCE7 Vurgulu TOPLAM Satırı
+    # En Altta Ferah TOPLAM Satırı
     toplam_satir_no = baslangic_satir + len(sim_df)
-    ws.row_dimensions[toplam_satir_no].height = 25
+    ws.row_dimensions[toplam_satir_no].height = 28
     toplam_dolgu = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
     toplam_font = Font(name="Calibri", size=11, bold=True, color="14532D")
 
@@ -3879,14 +4335,11 @@ def _tasarimli_excel_olustur(
         "TOPLAM / GENEL ÖZET",
         "-",
         "-",
-        float(sim_df["SUBE_AYLIK_KG"].sum()),
         float(sim_df["YILLIK_TOPLAM_KG"].sum()),
-        float(sim_df["GUNCEL_BIRIM_FIYAT"].mean()),
-        float(toplam_tasarruf_yuzde) / 100.0,
         float(toplam_spot),
         float(toplam_akilli),
         float(toplam_net_tasarruf),
-        f"Net Kazanç Oranı: %{toplam_tasarruf_yuzde:.1f}",
+        f"Yıllık Net Tasarruf Oranı: %{toplam_tasarruf_yuzde:.1f}",
     ]
 
     for col_idx, val in enumerate(toplam_degerleri, start=1):
@@ -3894,47 +4347,34 @@ def _tasarimli_excel_olustur(
         hc.fill = toplam_dolgu
         hc.font = toplam_font
         hc.border = hucre_cerceve
-        if col_idx in [1, 11]:
+        if col_idx in [1, 8]:
             hc.alignment = Alignment(horizontal="left", vertical="center")
         elif col_idx in [2, 3]:
             hc.alignment = Alignment(horizontal="center", vertical="center")
         else:
             hc.alignment = Alignment(horizontal="right", vertical="center")
 
-        if col_idx in [4, 5]:
+        if col_idx == 4:
             hc.number_format = "#,##0"
-        elif col_idx == 6:
-            hc.number_format = '#,##0.00 "₺"'
-        elif col_idx == 7:
-            hc.number_format = "0.0%"
-        elif col_idx in [8, 9, 10]:
-            hc.number_format = '#,##0 "₺"'
+        elif col_idx in [5, 6, 7]:
+            hc.number_format = '#,##0 "TL"'
 
-    # Otomatik Sütun Genişlikleri
-    for col_idx in range(1, len(basliklar) + 1):
-        harf = get_column_letter(col_idx)
-        max_uzunluk = len(str(basliklar[col_idx - 1]))
-        for row_idx in range(4, toplam_satir_no + 1):
-            deger = ws.cell(row=row_idx, column=col_idx).value
-            if deger is not None:
-                uzunluk = len(str(deger))
-                if col_idx in [8, 9, 10]:
-                    uzunluk += 6
-                if uzunluk > max_uzunluk:
-                    max_uzunluk = uzunluk
-        ws.column_dimensions[harf].width = min(max(max_uzunluk + 4, 13), 44)
+    sabit_genislikler = [22, 11, 16, 22, 23, 23, 23, 38]
+    for col_idx, gen in enumerate(sabit_genislikler, start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = gen
 
-    # 2. Sayfa: Senaryo A vs. Senaryo B Karşılaştırma Sayfası
-    ws2 = wb.create_sheet(title="Senaryo_Karsilastirma")
+    # 2. Sayfa: Sade Senaryo Karşılaştırma Özeti (Dinamik Önerilen Strateji)
+    ws2 = wb.create_sheet(title="Senaryo_Ozeti")
+    ws2.views.sheetView[0].showGridLines = True
     ws2.merge_cells("A1:E1")
-    ws2["A1"] = "SNC | Senaryo A (Sadece Sözleşme) vs. Senaryo B (Karma Optimizasyon)"
-    ws2["A1"].font = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
-    ws2["A1"].fill = PatternFill(start_color="1B7A43", end_color="1B7A43", fill_type="solid")
+    ws2["A1"] = "YÖNETİM KARAR ALTERNATİFLERİ — SENARYO A VE SENARYO B KARŞILAŞTIRMASI"
+    ws2["A1"].font = Font(name="Calibri", size=12, bold=True, color="FFFFFF")
+    ws2["A1"].fill = PatternFill(start_color="14532D", end_color="14532D", fill_type="solid")
     ws2["A1"].alignment = Alignment(horizontal="center", vertical="center")
-    ws2.row_dimensions[1].height = 28
+    ws2.row_dimensions[1].height = 30
 
-    s2_basliklar = ["Strateji / Senaryo", "Yıllık Toplam Maliyet", "Yıllık Net Tasarruf", "Tasarruf Oranı", "Risk & Operasyon Notu"]
-    ws2.row_dimensions[3].height = 24
+    s2_basliklar = ["Satın Alma Senaryosu", "Yıllık Toplam Maliyet", "Yıllık Net Kazanç", "Tasarruf Oranı", "Yönetici Değerlendirmesi"]
+    ws2.row_dimensions[3].height = 26
     for col_idx, b_metin in enumerate(s2_basliklar, start=1):
         c = ws2.cell(row=3, column=col_idx, value=b_metin)
         c.fill = baslik_dolgu
@@ -3944,14 +4384,39 @@ def _tasarimli_excel_olustur(
 
     senaryo_a_pct = (senaryo_a_tasarruf / toplam_spot) if toplam_spot > 0 else 0.0
     senaryo_b_pct = (toplam_net_tasarruf / toplam_spot) if toplam_spot > 0 else 0.0
+    a_kazandi = senaryo_a_tasarruf >= toplam_net_tasarruf
 
     s2_satirlar = [
-        ("Mevcut Durum: Klasik Spot Alım", float(toplam_spot), 0.0, 0.0, "Fiyat dalgalanmasına açık; referans baz senaryo", zebra_koyu, veri_font),
-        ("Senaryo A: Sadece Sabit Fiyat Sözleşmesi", float(senaryo_a_maliyet), float(senaryo_a_tasarruf), float(senaryo_a_pct), "Düşük Risk • %0 Zayi/Bozulma & %0 Depo maliyeti", sari_dolgu, sari_font),
-        ("Senaryo B: SNC Karma Strateji (Stok + Sözleşme)", float(toplam_akilli), float(toplam_net_tasarruf), float(senaryo_b_pct), "Önerilen • En Yüksek Net Tasarruf (Ürün bazlı optimum)", yesil_dolgu, yesil_font),
+        (
+            "Mevcut Durum: Klasik Spot Alım",
+            float(toplam_spot),
+            0.0,
+            0.0,
+            "Referans baz senaryo (mevsimsel fiyat dalgalanmasına açık)",
+            zebra_koyu,
+            veri_font,
+        ),
+        (
+            "Senaryo A: Sabit Fiyatlı Tedarikçi Sözleşmesi",
+            float(senaryo_a_maliyet),
+            float(senaryo_a_tasarruf),
+            float(senaryo_a_pct),
+            "ÖNERİLEN STRATEJİ • %0 Zayi ve %0 Depo riskiyle en yüksek net kazanç" if a_kazandi else "Alternatif • %0 Zayi ve %0 Depo riski",
+            yesil_dolgu if a_kazandi else zebra_acik,
+            yesil_font if a_kazandi else veri_font,
+        ),
+        (
+            "Senaryo B: Karma Strateji (Stoklama + Sözleşme)",
+            float(toplam_akilli),
+            float(toplam_net_tasarruf),
+            float(senaryo_b_pct),
+            "ÖNERİLEN STRATEJİ • Ürün bazlı en yüksek net bütçe tasarrufu" if not a_kazandi else "Alternatif • Fiziksel stok ve sözleşme karma planı",
+            yesil_dolgu if not a_kazandi else zebra_acik,
+            yesil_font if not a_kazandi else veri_font,
+        ),
     ]
     for r_i, (s_ad, s_mal, s_tas, s_pct, s_not, s_dolgu, s_fnt) in enumerate(s2_satirlar, start=4):
-        ws2.row_dimensions[r_i].height = 24
+        ws2.row_dimensions[r_i].height = 26
         degerler = [s_ad, s_mal, s_tas, s_pct, s_not]
         for c_i, val in enumerate(degerler, start=1):
             hc = ws2.cell(row=r_i, column=c_i, value=val)
@@ -3960,11 +4425,11 @@ def _tasarimli_excel_olustur(
             hc.border = hucre_cerceve
             hc.alignment = Alignment(horizontal="left" if c_i in [1, 5] else "right", vertical="center")
             if c_i in [2, 3]:
-                hc.number_format = '#,##0 "₺"'
+                hc.number_format = '#,##0 "TL"'
             elif c_i == 4:
                 hc.number_format = "0.0%"
 
-    for col_idx, genislik in enumerate([44, 24, 24, 18, 48], start=1):
+    for col_idx, genislik in enumerate([40, 22, 22, 16, 52], start=1):
         ws2.column_dimensions[get_column_letter(col_idx)].width = genislik
 
     tampon = BytesIO()
