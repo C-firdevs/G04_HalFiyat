@@ -1,0 +1,3 @@
+﻿Model,Özellik Sayısı,Genel Test MAE (TL),Kış Dönemi MAE (TL),Test R²
+Temel Model (12 Özellik - Sıcaklık Yok),12,4.085,4.521,0.8826
+Don Zenginleştirilmiş Model (15 Özellik - Open-Meteo),15,4.102,4.505,0.8853
