@@ -1,0 +1,5 @@
+﻿Model Adı,Doğrulama Hatası (TL),Test Yanılma Payı (TL),Yanılma Oranı (%),Tahmin Başarısı (R²),Sonuç Özeti
+1. Naif Baseline (Bugünkü Fiyat = Haftaya Fiyat),1.9,3.75,%13.08,%93.18,Referans Başlangıç Modeli
+2. Random Forest (Rastgele Orman),1.95,3.72,%12.93,%93.41,Naif Modeli Geçti (+%0.9 Daha Doğru)
+3. Gradient Boosting (Seçilen Ana Model ⭐),1.89,3.7,%12.80,%93.35,En Düşük Hata (+%1.34 Daha Doğru) ⭐
+4. Gradient Boosting (Hiperparametre Ayarlı),1.9,3.72,%12.92,%93.28,Naif Modeli Geçti (+%0.8 Daha Doğru)
